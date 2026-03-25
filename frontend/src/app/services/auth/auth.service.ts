@@ -34,14 +34,3 @@ export class AuthService {
         });
     }
 }
-
-/*
-
-user = new User({ name, email, password: hashedPassword, verificationCode, skillsHave, skillsWant });
-  await user.save();
-
-  await sendEmail(email, "Verify Your Email", `Your verification code is: ${verificationCode}`);
-
-  return user;
-
-*/
