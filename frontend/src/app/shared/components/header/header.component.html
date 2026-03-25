@@ -1,21 +1,43 @@
-<nav class="navbar">
-    <div class="nav-left">
+<!-- <header class="header">
+    <div>
+        <div class="header-left">
+            <h2 class="logo">📂 DMS</h2>
+        </div>
 
-        <a routerLinkActive="active" routerLink="/home" [routerLinkActiveOptions]="{ exact: true }">Home</a>
-        <a routerLinkActive="active" routerLink="/students/add-student" [routerLinkActiveOptions]="{ exact: true }">Add
-            Students</a>
+        <div class="header-center">
+            <input type="text" placeholder="Search files, folders..." class="search-input" />
+        </div>
 
-        <a *ngIf="role === 'admin'" routerLinkActive="active" routerLink="/users"
-            [routerLinkActiveOptions]="{ exact: true }">Show Users</a>
-        <a *ngIf="role === 'admin'" routerLinkActive="active" routerLink="/users/add-user"
-            [routerLinkActiveOptions]="{ exact: true }">Add User</a>
-
+        <div class="header-right">
+            <div class="profile">
+                <img src="https://via.placeholder.com/35" alt="profile" />
+                <span>John</span>
+            </div>
+        </div>
     </div>
+</header> -->
 
-    <div class="nav-right">
-        <img class="navProfileImg" [src]="imageUrl" alt="profile" />
-        <button class="logoutBtn" (click)="logout()">
-            <img src="/icons/logout.png" alt="logout" />
-        </button>
+<header class="header">
+  <!-- Left: Logo -->
+  <div class="header-left">
+    <div class="logo-box">📂</div>
+    <h2 class="logo-text">DMS</h2>
+  </div>
+
+  <!-- Center: Search -->
+  <div class="header-center">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Search files, folders..." />
     </div>
-</nav>
+  </div>
+
+  <!-- Right: Profile -->
+  <div class="header-right">
+    <!-- <div class="icon-btn">🔔</div> -->
+    <div class="profile">
+      <img src="https://i.pravatar.cc/40" alt="profile" />
+      <span>John</span>
+    </div>
+  </div>
+</header>
