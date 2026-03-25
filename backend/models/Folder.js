@@ -30,4 +30,5 @@ const folderSchema = new mongoose.Schema(
 ``
 folderSchema.index({ owner: 1, parentFolder: 1 });
 
+
 module.exports = mongoose.model("Folder", folderSchema);

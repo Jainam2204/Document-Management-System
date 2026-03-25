@@ -38,6 +38,16 @@ const userSchema = new mongoose.Schema({
 
     passwordExpiresAt: {
         type: Date
+    },
+
+    usedStorage: {
+        type: Number,
+        default: 0
+    },
+
+    storageLimit: {
+        type: Number,
+        default: 5 * 1024 * 1024 * 1024
     }
 },
     { timestamps: true }

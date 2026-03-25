@@ -17,7 +17,7 @@ const fileSchema = new mongoose.Schema(
       type: Number
     },
 
-    mimeType: {
+    type: {
       type: String
     },
 

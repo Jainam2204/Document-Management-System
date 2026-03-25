@@ -29,6 +29,4 @@ const shareLinkSchema = new mongoose.Schema(
 
 shareLinkSchema.index({ token: 1 }, { unique: true });
 
-// shareLinkSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
 module.exports = mongoose.model("ShareLink", shareLinkSchema);
