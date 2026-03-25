@@ -1,0 +1,20 @@
+<div class="body">
+    <div class="container">
+        <form #verificationForm="ngForm" (ngSubmit)="verify(verificationForm.value)">
+            <h2>Verify</h2>
+
+
+            <input type="text" name="verificationCode" #verificationCode="ngModel" minlength="6" maxlength="6" pattern="^[1-9]\d{5}$"
+                placeholder="Enter verification code" required ngModel>
+
+            <small class="error-msg" *ngIf="verificationCode.invalid && verificationCode.touched">
+                Verification code only contains digits
+            </small>
+
+            <input type="hidden" name="email" [(ngModel)]="email">
+
+            <button>Verify</button>
+        </form>
+
+    </div>
+</div>

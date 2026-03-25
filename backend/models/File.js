@@ -1,46 +1,55 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const fileSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
+    {
+        id: {
+            type: Number,
+            required: true
+        },
+        
+        name: {
+            type: String,
+            required: true,
+            trim: true
+        },
 
-    s3Key: {
-      type: String,
-      required: true
-    },
+        s3Key: {
+            type: String,
+            required: true
+        },
 
-    size: {
-      type: Number
-    },
+        size: {
+            type: Number
+        },
 
-    type: {
-      type: String
-    },
+        type: {
+            type: String
+        },
 
-    folder: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Folder",
-      default: null
-    },
+        folder: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Folder",
+            default: null
+        },
 
-    owner: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
+        owner: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
 
-    isDeleted: {
-      type: Boolean,
-      default: false
-    }
-  },
-  { timestamps: true }
+        isDeleted: {
+            type: Boolean,
+            default: false
+        },
+
+        deletedAt: {
+            type: Date
+        }
+    },
+    { timestamps: true }
 );
 
 fileSchema.index({ owner: 1, folder: 1 });
 
-module.exports = mongoose.model("File", fileSchema);
+export default mongoose.model("File", fileSchema);

@@ -1,0 +1,34 @@
+<div class="body">
+    <div class="container">
+        <form #registerForm="ngForm" (ngSubmit)="register(registerForm.value)">
+            <h2>Sign Up</h2>
+
+
+            <input type="text" name="name" #name="ngModel" minlength="2" maxlength="12" pattern="^[a-zA-Z\s]+$"
+                placeholder="Enter name" required ngModel>
+
+            <small class="error-msg" *ngIf="name.invalid && name.touched">
+                Name contains only name and space
+            </small>
+
+            <input type="text" name="email" #email="ngModel" placeholder="Enter email" required
+                pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$" ngModel>
+
+            <small class="error-msg" *ngIf="email.invalid && email.touched">
+                Invalid Email format
+            </small>
+
+            <!-- <input type="password" name="password" ngModel required> -->
+            <input type="password" name="password" #password="ngModel" placeholder="Enter password" required
+                pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,14}$" ngModel>
+
+            <small class="error-msg" *ngIf="password.invalid && password.touched">
+                Password must contain one Uppercase letter one lowercase letter one digit, one special character and
+                between 6-14 characters
+            </small>
+
+            <button>Sign Up</button>
+        </form>
+
+    </div>
+</div>

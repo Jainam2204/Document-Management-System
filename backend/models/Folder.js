@@ -1,34 +1,43 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const folderSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
+    {
+        id: {
+            type: Number,
+            required: true
+        },
+        
+        name: {
+            type: String,
+            required: true,
+            trim: true
+        },
 
-    parentFolder: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Folder",
-      default: null
-    },
+        parentFolder: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Folder",
+            default: null
+        },
 
-    owner: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
+        owner: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
 
-    isDeleted: {
-      type: Boolean,
-      default: false
-    }
-  },
-  { timestamps: true }
+        isDeleted: {
+            type: Boolean,
+            default: false
+        },
+
+        deletedAt: {
+            type: Date
+        }
+    },
+    { timestamps: true }
 );
-``
+
 folderSchema.index({ owner: 1, parentFolder: 1 });
 
 
-module.exports = mongoose.model("Folder", folderSchema);
+export default mongoose.model("Folder", folderSchema);

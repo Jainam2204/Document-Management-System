@@ -1,0 +1,21 @@
+<nav class="navbar">
+    <div class="nav-left">
+
+        <a routerLinkActive="active" routerLink="/home" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+        <a routerLinkActive="active" routerLink="/students/add-student" [routerLinkActiveOptions]="{ exact: true }">Add
+            Students</a>
+
+        <a *ngIf="role === 'admin'" routerLinkActive="active" routerLink="/users"
+            [routerLinkActiveOptions]="{ exact: true }">Show Users</a>
+        <a *ngIf="role === 'admin'" routerLinkActive="active" routerLink="/users/add-user"
+            [routerLinkActiveOptions]="{ exact: true }">Add User</a>
+
+    </div>
+
+    <div class="nav-right">
+        <img class="navProfileImg" [src]="imageUrl" alt="profile" />
+        <button class="logoutBtn" (click)="logout()">
+            <img src="/icons/logout.png" alt="logout" />
+        </button>
+    </div>
+</nav>

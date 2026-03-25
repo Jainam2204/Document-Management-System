@@ -1,0 +1,95 @@
+/* You can add global styles to this file, and also import other style files */
+.body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.container {
+    background: #fff;
+    padding: 30px 40px;
+    border-radius: 8px;
+    width: 300px;
+    margin-top: 10px;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    flex: 1;
+}
+
+form button {
+    width: 100%;
+    padding: 10px;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+form button:hover {
+    background: #0056b3;
+}
+
+.icon-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 6px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn img {
+    width: 30px;
+    height: 30px;
+}
+
+.edit-btn {
+    padding-left: 70px;
+}
+
+.edit-btn:hover {
+    background: rgba(0, 123, 255, 0.12);
+}
+
+.delete-btn:hover {
+    background: rgba(220, 53, 69, 0.12);
+}
+
+.error-msg{
+    color: red;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.label-input-div {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+label {
+    width: 100px;
+    white-space: nowrap;
+    font-weight: 500;
+}
