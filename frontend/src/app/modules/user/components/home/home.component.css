@@ -1,0 +1,139 @@
+.drive {
+  padding: 20px;
+  background: #f8f9fb;
+  height: 100%;
+}
+
+/* HEADER */
+.drive__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drive__title {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.drive__filters {
+  display: flex;
+  gap: 10px;
+}
+
+.chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+}
+
+/* SECTIONS */
+.drive__section {
+  margin-top: 20px;
+}
+
+.drive__section-title {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+/* GRID */
+.drive__grid {
+  display: grid;
+  gap: 16px;
+}
+
+.drive__grid--folders {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.drive__grid--files {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* FOLDER CARD */
+.folder-card {
+  background: #e9eef6;
+  padding: 12px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.folder-card:hover {
+  background: #dbe4f3;
+}
+
+.folder-card__left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 500;
+}
+
+/* FILE CARD */
+.file-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid #eee;
+}
+
+.file-card__name {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.file-card__preview {
+  height: 120px;
+  background: #f1f3f5;
+  border-radius: 6px;
+}
+
+/* DIALOG */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dialog {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 300px;
+}
+
+.dialog__input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.dialog__actions button {
+  padding: 6px 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.dialog__actions .primary {
+  background: #007bff;
+  color: #fff;
+}

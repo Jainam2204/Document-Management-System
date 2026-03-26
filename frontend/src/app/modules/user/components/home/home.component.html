@@ -1,0 +1,65 @@
+<div class="drive">
+
+  <!-- Header -->
+  <div class="drive__header">
+    <h2 class="drive__title">My Drive</h2>
+
+    <div class="drive__filters">
+      <button class="chip">Type</button>
+      <button class="chip">People</button>
+      <button class="chip">Modified</button>
+      <button class="chip">Source</button>
+    </div>
+  </div>
+
+  <!-- Folders -->
+  <div class="drive__section">
+    <div class="drive__section-title">Folders</div>
+
+    <div class="drive__grid drive__grid--folders">
+      <div
+        class="folder-card"
+        *ngFor="let folder of folders"
+      >
+        <div class="folder-card__left">
+          📁
+          <span>{{ folder.name }}</span>
+        </div>
+
+        <div class="folder-card__menu">⋮</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Files -->
+  <div class="drive__section">
+    <div class="drive__section-title">Files</div>
+
+    <div class="drive__grid drive__grid--files">
+      <div class="file-card" *ngFor="let file of files">
+        <div class="file-card__name">{{ file.name }}</div>
+        <div class="file-card__preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Folder Dialog -->
+  <div class="dialog-backdrop" *ngIf="showDialog">
+    <div class="dialog">
+      <h3>New Folder</h3>
+
+      <input
+        type="text"
+        [(ngModel)]="newFolderName"
+        placeholder="Folder name"
+        class="dialog__input"
+      />
+
+      <div class="dialog__actions">
+        <button (click)="closeDialog()">Cancel</button>
+        <button class="primary" (click)="createFolder()">Create</button>
+      </div>
+    </div>
+  </div>
+
+</div>

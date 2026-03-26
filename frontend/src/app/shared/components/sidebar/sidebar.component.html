@@ -1,6 +1,41 @@
 <aside class="sidebar" [class.sidebar--collapsed]="collapsed" id="app-sidebar">
   <nav class="sidebar__nav">
     <ul class="sidebar__list">
+      <div class="sidebar__new">
+  <button class="sidebar__new-btn" (click)="toggleNewMenu()">
+    + New
+  </button>
+
+  <div class="sidebar__dropdown" *ngIf="showNewMenu">
+    <div class="sidebar__dropdown-item" (click)="createFolder()">
+      📁 New Folder
+    </div>
+
+    <div class="sidebar__dropdown-item" (click)="triggerFileUpload()">
+      📄 Upload File
+    </div>
+
+    <div class="sidebar__dropdown-item" (click)="triggerFolderUpload()">
+      📂 Upload Folder
+    </div>
+  </div>
+
+  <input
+    type="file"
+    #fileInput
+    hidden
+    (change)="onFileSelected($event)"
+  />
+
+  <input
+    type="file"
+    #folderInput
+    hidden
+    webkitdirectory
+    directory
+    (change)="onFolderSelected($event)"
+  />
+</div>
       <li class="sidebar__item"
           [class.sidebar__item--active]="activeItem === 'files'"
           (click)="setActive('files')"

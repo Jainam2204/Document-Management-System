@@ -228,3 +228,47 @@
   padding-left: 0;
   padding-right: 0;
 }
+
+.sidebar__new {
+  position: relative;
+  padding: 16px;
+}
+
+.sidebar__new-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 20px;
+  border: none;
+  background: #007bff;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.sidebar__new-btn:hover {
+  background: #0056b3;
+}
+
+.sidebar__dropdown {
+  position: absolute;
+  top: 60px;
+  left: 16px;
+  right: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.sidebar__dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.sidebar__dropdown-item:hover {
+  background: #f4f6f8;
+}

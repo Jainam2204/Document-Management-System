@@ -4,7 +4,6 @@ import { MainLayoutComponent } from './modules/user/main-layout.component';
 export const routes: Routes = [
     {
         path: 'auth',
-        // No layout wrapper — auth pages render without header/sidebar
         children: [
             {
                 path: '',
