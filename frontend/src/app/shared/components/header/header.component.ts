@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Output } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -11,18 +11,8 @@ export class HeaderComponent {
   @Output() toggleSidebar = new EventEmitter<void>();
 
   searchOpen = false;
-  profileDropdownOpen = false;
 
   onToggleSidebar(): void {
     this.toggleSidebar.emit();
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
-    const target = event.target as HTMLElement;
-    const profileEl = document.getElementById('header-profile');
-    if (profileEl && !profileEl.contains(target)) {
-      this.profileDropdownOpen = false;
-    }
   }
 }

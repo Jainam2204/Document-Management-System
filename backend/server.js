@@ -5,10 +5,10 @@ const app = express();
 
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import path from 'path';
 
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoute.js';
+import fileRoutes from './routes/fileRoutes.js';
 
 app.use(cors({
    origin: [process.env.CLIENT_URL1, process.env.CLIENT_URL2],
@@ -20,9 +20,9 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/files", fileRoutes);
 
 connectDB();
 
@@ -31,4 +31,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
    console.log(`Server is running on PORT ${PORT}`);
 });
-

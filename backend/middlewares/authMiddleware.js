@@ -1,28 +1,40 @@
-require('dotenv').config();
-const jwt = require("jsonwebtoken");
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
     try {
-        let token = req.headers["x-access-token"];
+        const token = req.headers['x-access-token'] || req.cookies?.accessToken;
 
         if (!token) {
             return res.status(401).json({
                 success: false,
-                message: "Access token not found",
+                message: 'Access token not found',
             });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
-        req.user = decoded;
-        next();
 
+        const user = await User.findOne({ email: decoded.email }).select(
+            '_id id email isAdmin storageUsed storageLimit'
+        );
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'User not found',
+            });
+        }
+
+        req.user = user;
+        next();
     } catch (error) {
-        console.error("Error in authMiddleware: " + error);
+        console.error('Error in authMiddleware: ' + error);
         res.status(401).json({
             success: false,
-            message: "Invalid token"
+            message: 'Invalid token',
         });
     }
 };
 
-module.exports = authMiddleware;
+export default authMiddleware;

@@ -1,4 +1,9 @@
 :host {
+  --color-bg-page: #f4f6f8;
+  --space-lg: 24px;
+  --space-md: 16px;
+  --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -13,13 +18,13 @@
 .main-content {
   flex: 1;
   overflow-y: auto;
-  background: #f4f6f8;
-  padding: 24px;
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--color-bg-page);
+  padding: var(--space-lg);
+  transition: margin-left var(--transition-base);
 }
 
 @media (max-width: 768px) {
   .main-content {
-    padding: 16px;
+    padding: var(--space-md);
   }
 }

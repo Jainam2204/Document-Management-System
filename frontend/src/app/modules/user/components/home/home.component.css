@@ -4,7 +4,7 @@
   height: 100%;
 }
 
-/* HEADER */
+
 .drive__header {
   display: flex;
   justify-content: space-between;
@@ -29,7 +29,6 @@
   cursor: pointer;
 }
 
-/* SECTIONS */
 .drive__section {
   margin-top: 20px;
 }
@@ -40,7 +39,6 @@
   margin-bottom: 10px;
 }
 
-/* GRID */
 .drive__grid {
   display: grid;
   gap: 16px;
@@ -54,7 +52,6 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
-/* FOLDER CARD */
 .folder-card {
   background: #e9eef6;
   padding: 12px;
@@ -76,7 +73,6 @@
   font-weight: 500;
 }
 
-/* FILE CARD */
 .file-card {
   background: #fff;
   border-radius: 10px;
@@ -95,7 +91,6 @@
   border-radius: 6px;
 }
 
-/* DIALOG */
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -136,4 +131,24 @@
 .dialog__actions .primary {
   background: #007bff;
   color: #fff;
+}
+
+.file-card__meta {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.drive__loading {
+  text-align: center;
+  padding: 40px;
+  color: #888;
+  font-size: 14px;
+}
+
+.drive__empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888;
+  font-size: 14px;
 }
