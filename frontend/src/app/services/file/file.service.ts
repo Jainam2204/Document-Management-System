@@ -58,6 +58,19 @@ interface CreateFolderTreeResponse {
   pathToIdMap: { [path: string]: string };
 }
 
+interface GetFolderContentsResponse {
+  success: boolean;
+  folder: FolderRecord;
+  files: FileRecord[];
+  subfolders: FolderRecord[];
+}
+
+interface CreateFolderResponse {
+  success: boolean;
+  message: string;
+  folder: FolderRecord;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -129,6 +142,21 @@ export class FileService {
     return this.http.get<GetFilesResponse>(this.url, {
       headers: this.getAuthHeaders(),
       params,
+    });
+  }
+
+  getFolderContents(folderId: string): Observable<GetFolderContentsResponse> {
+    return this.http.get<GetFolderContentsResponse>(this.url + '/folders/' + folderId, {
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  createFolder(name: string, parentId?: string): Observable<CreateFolderResponse> {
+    return this.http.post<CreateFolderResponse>(this.url + '/folders', {
+      name,
+      parentId: parentId || null,
+    }, {
+      headers: this.getAuthHeaders(),
     });
   }
 }

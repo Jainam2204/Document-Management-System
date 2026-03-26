@@ -1,7 +1,5 @@
-<!-- Header -->
 <header class="header" id="app-header">
 
-  <!-- Left: Hamburger + Logo -->
   <div class="header-left">
     <button class="icon-btn" id="hamburger-btn" (click)="onToggleSidebar()" aria-label="Toggle sidebar">
       <img src="icons/menu.svg" alt="menu" class="icon" />
@@ -12,7 +10,6 @@
     </a>
   </div>
 
-  <!-- Center: Search Bar -->
   <div class="header-center" [class.header-center--open]="searchOpen">
     <div class="search-box" id="header-search">
       <img src="icons/search.svg" alt="search" class="icon" />
@@ -29,12 +26,10 @@
     </div>
   </div>
 
-  <!-- Mobile: Search Toggle -->
   <button class="icon-btn search-toggle" id="search-toggle-btn" (click)="searchOpen = true" aria-label="Open search">
     <img src="icons/search.svg" alt="search" class="icon" />
   </button>
 
-  <!-- Right: Profile Avatar (no dropdown) -->
   <div class="header-right">
     <button class="avatar-btn" aria-label="Profile">
       <div class="avatar" id="header-avatar">

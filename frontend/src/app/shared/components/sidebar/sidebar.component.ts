@@ -1,6 +1,7 @@
 import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpEventType } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { FileService } from '../../../services/file/file.service';
 import { ToastService } from '../../../services/toast/toast.service';
 
@@ -24,7 +25,8 @@ export class SidebarComponent {
 
   constructor(
     private fileService: FileService,
-    private toast: ToastService
+    private toast: ToastService,
+    private router: Router
   ) {
     this.checkMobile();
   }
@@ -40,8 +42,21 @@ export class SidebarComponent {
   createFolder() {
     this.showNewMenu = false;
     const folderName = prompt('Enter folder name');
-    if (!folderName) return;
-    console.log('Create folder:', folderName);
+    if (!folderName || !folderName.trim()) return;
+    this.fileService.createFolder(folderName.trim()).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.toast.success('Folder created successfully');
+          this.fileService.fileUploaded$.next(); // Trigger reload
+        } else {
+          this.toast.error(res.message || 'Failed to create folder');
+        }
+      },
+      error: (err) => {
+        console.error('Error creating folder:', err);
+        this.toast.error('Failed to create folder');
+      }
+    });
   }
 
   triggerFileUpload() {
@@ -328,6 +343,9 @@ export class SidebarComponent {
 
   setActive(item: string): void {
     this.activeItem = item;
+    if (item === 'files') {
+      this.router.navigate(['/home']);
+    }
   }
 
   onLogout(): void {

@@ -241,3 +241,114 @@ export const getUserFolders = async (req, res) => {
         });
     }
 };
+
+export const getFolderContents = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Folder ID is required',
+            });
+        }
+
+        const folder = await Folder.findOne({
+            _id: id,
+            owner: req.user._id,
+            isDeleted: false,
+        });
+
+        if (!folder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Folder not found',
+            });
+        }
+
+        const subfolders = await Folder.find({
+            parentFolder: id,
+            owner: req.user._id,
+            isDeleted: false,
+        }).sort({ createdAt: -1 }).lean();
+
+        const files = await File.find({
+            folder: id,
+            owner: req.user._id,
+            isDeleted: false,
+        }).sort({ createdAt: -1 }).lean();
+
+        res.status(200).json({
+            success: true,
+            folder: {
+                _id: folder._id,
+                id: folder.id,
+                name: folder.name,
+                parentFolder: folder.parentFolder,
+            },
+            files,
+            subfolders,
+        });
+    } catch (error) {
+        console.error('Error in getFolderContents: ' + error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch folder contents',
+        });
+    }
+};
+
+export const createFolder = async (req, res) => {
+    try {
+        const { name, parentId } = req.body;
+
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Folder name is required',
+            });
+        }
+
+        const userId = req.user._id;
+
+        // Check for duplicate name in the same parent folder
+        const existingFolder = await Folder.findOne({
+            name: name.trim(),
+            parentFolder: parentId || null,
+            owner: userId,
+            isDeleted: false,
+        });
+
+        if (existingFolder) {
+            return res.status(400).json({
+                success: false,
+                message: 'A folder with this name already exists in the current location',
+            });
+        }
+
+        const counter = await Counter.findOneAndUpdate(
+            { collectionName: 'folders' },
+            { $inc: { count: 1 } },
+            { new: true, upsert: true }
+        );
+
+        const folder = await Folder.create({
+            id: counter.count,
+            name: name.trim(),
+            parentFolder: parentId || null,
+            owner: userId,
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Folder created successfully',
+            folder,
+        });
+    } catch (error) {
+        console.error('Error in createFolder: ' + error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create folder',
+        });
+    }
+};

@@ -1,10 +1,14 @@
 <div class="drive">
 
-  <!-- Header -->
   <div class="drive__header">
-    <h2 class="drive__title">My Drive</h2>
+    <div class="drive__breadcrumb">
+      <button *ngIf="currentFolder" (click)="goBack()" class="back-btn">← Back</button>
+      <span *ngIf="!currentFolder">My Drive</span>
+      <span *ngIf="currentFolder">{{ currentFolder.name }}</span>
+    </div>
 
     <div class="drive__filters">
+      <button class="chip" (click)="openDialog()">+ New Folder</button>
       <button class="chip">Type</button>
       <button class="chip">People</button>
       <button class="chip">Modified</button>
@@ -12,15 +16,13 @@
     </div>
   </div>
 
-  <!-- Loading -->
   <div class="drive__loading" *ngIf="loading">Loading files...</div>
 
-  <!-- Folders -->
   <div class="drive__section" *ngIf="folders.length > 0">
     <div class="drive__section-title">Folders</div>
 
     <div class="drive__grid drive__grid--folders">
-      <div class="folder-card" *ngFor="let folder of folders">
+      <div class="folder-card" *ngFor="let folder of folders" (click)="onFolderClick(folder)">
         <div class="folder-card__left">
           📁
           <span>{{ folder.name }}</span>
@@ -30,7 +32,6 @@
     </div>
   </div>
 
-  <!-- Files -->
   <div class="drive__section" *ngIf="files.length > 0">
     <div class="drive__section-title">Files</div>
 
@@ -43,12 +44,12 @@
     </div>
   </div>
 
-  <!-- Empty state -->
+
   <div class="drive__empty" *ngIf="!loading && files.length === 0 && folders.length === 0">
     <p>No files or folders yet. Click <strong>+ New</strong> to upload a file.</p>
   </div>
 
-  <!-- Create Folder Dialog -->
+
   <div class="dialog-backdrop" *ngIf="showDialog">
     <div class="dialog">
       <h3>New Folder</h3>

@@ -4,6 +4,10 @@ import { HomeComponent } from './components/home/home.component';
 
 const routes: Routes = [
   {
+    path: 'home/:id',
+    component: HomeComponent
+  },
+  {
     path: 'home',
     component: HomeComponent
   }

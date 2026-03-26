@@ -1,8 +1,6 @@
-<!-- Sidebar -->
 <aside class="sidebar" [class.sidebar--collapsed]="collapsed" id="app-sidebar">
   <nav class="sidebar-nav" aria-label="Main navigation">
 
-    <!-- + New Button -->
     <div class="sidebar-new">
       <button class="new-btn" (click)="toggleNewMenu()">+ New</button>
       <div class="new-dropdown" *ngIf="showNewMenu">
@@ -11,12 +9,9 @@
         <button class="new-dropdown-item" (click)="triggerFolderUpload()">📂 Upload Folder</button>
       </div>
       <input type="file" #fileInput hidden (change)="onFileSelected($event)" />
-      <!-- <input type="file" #folderInput hidden webkitdirectory directory (change)="onFolderSelected($event)" /> -->
-      <!-- <input type="file" #folderInput hidden (change)="onFolderSelected($event)" webkitdirectory="true" /> -->
       <input type="file" #folderInput hidden multiple webkitdirectory (change)="onFolderSelected($event)" />
     </div>
 
-    <!-- Menu Items -->
     <ul class="sidebar-list">
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'files'" (click)="setActive('files')"
         id="sidebar-my-files">
@@ -34,7 +29,6 @@
         </a>
       </li>
 
-      <!-- Used Storage -->
       <li class="sidebar-item sidebar-item--storage" id="sidebar-storage">
         <div class="sidebar-link sidebar-link--static" title="Used Storage">
           <img src="icons/cloud.svg" alt="storage" class="icon" />
@@ -50,7 +44,6 @@
     </ul>
   </nav>
 
-  <!-- Footer: Logout -->
   <footer class="sidebar-footer">
     <button class="logout-btn" id="sidebar-logout" title="Logout" (click)="onLogout()">
       <img src="icons/logout.svg" alt="logout" class="icon" />
@@ -59,6 +52,5 @@
   </footer>
 </aside>
 
-<!-- Mobile overlay -->
 <div class="sidebar-overlay" *ngIf="!collapsed && isMobile" (click)="onOverlayClick()" id="sidebar-overlay">
 </div>
