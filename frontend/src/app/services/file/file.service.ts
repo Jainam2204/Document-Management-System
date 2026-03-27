@@ -107,10 +107,10 @@ export class FileService {
     });
   }
 
-  saveFileMetadata(name: string, s3Key: string, size: number, type: string, folderId?: string): Observable<SaveFileResponse> {
+  saveFileMetadata(name: string, s3Key: string, size: number, type: string, folderId: string | null): Observable<SaveFileResponse> {
     return this.http.post<SaveFileResponse>(
       this.url + '/save',
-      { name, s3Key, size, type, folderId: folderId || null },
+      { name, s3Key, size, type, folderId: folderId },
       { headers: this.getAuthHeaders() }
     );
   }

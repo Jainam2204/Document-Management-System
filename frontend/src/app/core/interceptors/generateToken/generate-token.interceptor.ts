@@ -5,11 +5,13 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { LoginResponse } from '../../../modules/auth/models/LoginResponse';
 import { environment } from '../../../../environments/environment.development';
 import { GetCookieService } from '../../../services/cookie/get-cookie.service';
+import { ToastService } from '../../../services/toast/toast.service';
 
 export const generateTokenInterceptor: HttpInterceptorFn = (req, next) => {
     const http = inject(HttpClient);
     const router = inject(Router);
     const cookieService = inject(GetCookieService);
+    const toast = inject(ToastService);
 
     return next(req).pipe(
         catchError((error: HttpErrorResponse) => {
@@ -31,7 +33,7 @@ export const generateTokenInterceptor: HttpInterceptorFn = (req, next) => {
                     }),
                     catchError((error: HttpErrorResponse) => {
                         if (error.status === 401) {
-                            alert('Please login again');
+                            toast.error('Please login again');
                             router.navigate(['auth/login']);
                         }
                         return throwError(() => error)

@@ -110,7 +110,7 @@ export const getUserFiles = async (req, res) => {
         if (folderId) {
             query.folder = folderId;
         } else {
-            query.folder = null; 
+            query.folder = null;
         }
 
         const files = await File.find(query)
@@ -311,7 +311,6 @@ export const createFolder = async (req, res) => {
 
         const userId = req.user._id;
 
-        // Check for duplicate name in the same parent folder
         const existingFolder = await Folder.findOne({
             name: name.trim(),
             parentFolder: parentId || null,
@@ -352,3 +351,147 @@ export const createFolder = async (req, res) => {
         });
     }
 };
+
+export const updateFileDeleteStatus = async (req, res) => {
+    try {
+        const fileId = req.params.id;
+
+        const file = await File.findOne({
+            _id: fileId,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!file) {
+            return res.status(404).send({
+                success: false,
+                message: 'File not found'
+            });
+        }
+
+        file.isDeleted = true;
+        file.deletedAt = Date.now();
+
+        await file.save();
+
+        await User.findOneAndUpdate(req.user._id, {
+            $inc: { storageUsed: -file.size }
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'File deleted successfully'
+        });
+    } catch (err) {
+        console.error('Error : ', err);
+        res.status(400).json({
+            success: false,
+            message: 'Error occured while deleting file'
+        });
+    }
+}
+
+export const updateFolderDeleteStatus = async (req, res) => {
+    try {
+        const folderId = req.params.id;
+
+        const folder = await Folder.findOne({
+            _id: folderId,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!folder) {
+            return res.status(404).send({
+                success: false,
+                message: 'Folder not found'
+            });
+        }
+
+        folder.isDeleted = true;
+        folder.deletedAt = Date.now();
+
+        await folder.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Folder deleted successfully'
+        });
+    } catch (err) {
+        console.error('Error : ', err);
+        res.status(400).json({
+            success: false,
+            message: 'Error occured while deleting folder'
+        });
+    }
+}
+
+export const renameFile = async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const { newName } = req.body;
+
+        const file = await File.findOne({
+            _id: fileId,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!file) {
+            return res.status(404).send({
+                success: false,
+                message: 'File not found'
+            });
+        }
+
+        file.name = newName;
+
+        await file.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'File renamed successfully'
+        });
+    } catch (err) {
+        console.error('Error : ', err);
+        res.status(400).json({
+            success: false,
+            message: 'Error occured while renaming file'
+        });
+    }
+}
+
+export const renameFolder = async (req, res) => {
+    try {
+        const folderId = req.params.id;
+        const { newName } = req.body;
+
+        const folder = await File.findOne({
+            _id: folderId,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!folder) {
+            return res.status(404).send({
+                success: false,
+                message: 'folder not found'
+            });
+        }
+
+        folder.name = newName;
+
+        await folder.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Folder renamed successfully'
+        });
+    } catch (err) {
+        console.error('Error : ', err);
+        res.status(400).json({
+            success: false,
+            message: 'Error occured while renaming file'
+        });
+    }
+}

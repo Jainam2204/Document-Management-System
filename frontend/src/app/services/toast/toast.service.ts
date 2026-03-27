@@ -19,23 +19,23 @@ export class ToastService {
   toasts$ = this._toasts$.asObservable();
   dismiss$ = this._dismiss$.asObservable();
 
-  success(message: string, duration = 4000): void {
+  success(message: string, duration = 4000) {
     this.show(message, 'success', duration);
   }
 
-  warning(message: string, duration = 5000): void {
+  warning(message: string, duration = 5000) {
     this.show(message, 'warning', duration);
   }
 
-  error(message: string, duration = 6000): void {
+  error(message: string, duration = 6000) {
     this.show(message, 'error', duration);
   }
 
-  dismiss(id: number): void {
+  dismiss(id: number) {
     this._dismiss$.next(id);
   }
 
-  private show(message: string, type: ToastType, duration: number): void {
+  private show(message: string, type: ToastType, duration: number) {
     this._toasts$.next({ id: ++this._counter, message, type, duration });
   }
 }

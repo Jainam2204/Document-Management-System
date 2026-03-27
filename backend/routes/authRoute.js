@@ -1,4 +1,7 @@
 import express from 'express';
+// import checkEmail from '../middlewares/checkEmail.js';
+// import authMiddleware from '../middlewares/authMiddleware.js'
+
 const router = express.Router();
 
 import { login, register, logout, verify, generateExpiredAccessToken } from '../controllers/authController.js';

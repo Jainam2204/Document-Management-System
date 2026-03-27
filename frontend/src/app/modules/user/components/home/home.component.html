@@ -1,69 +1,61 @@
 <div class="drive">
 
-  <div class="drive__header">
-    <div class="drive__breadcrumb">
-      <button *ngIf="currentFolder" (click)="goBack()" class="back-btn">← Back</button>
-      <span *ngIf="!currentFolder">My Drive</span>
-      <span *ngIf="currentFolder">{{ currentFolder.name }}</span>
-    </div>
-
-    <div class="drive__filters">
-      <button class="chip" (click)="openDialog()">+ New Folder</button>
-      <button class="chip">Type</button>
-      <button class="chip">People</button>
-      <button class="chip">Modified</button>
-      <button class="chip">Source</button>
-    </div>
-  </div>
-
-  <div class="drive__loading" *ngIf="loading">Loading files...</div>
-
-  <div class="drive__section" *ngIf="folders.length > 0">
-    <div class="drive__section-title">Folders</div>
-
-    <div class="drive__grid drive__grid--folders">
-      <div class="folder-card" *ngFor="let folder of folders" (click)="onFolderClick(folder)">
-        <div class="folder-card__left">
-          📁
-          <span>{{ folder.name }}</span>
+    <div class="drive__header">
+        <div class="drive__breadcrumb">
+            <button *ngIf="currentFolder" (click)="goBack()" class="back-btn">← Back</button>
+            <span>{{ currentFolder ? currentFolder.name : 'Home' }}</span>
         </div>
-        <div class="folder-card__menu">⋮</div>
-      </div>
+
+        <div class="drive__filters">
+            <button class="chip" (click)="openDialog()">+ New Folder</button>
+            <button class="chip">Date</button>
+            <button class="chip">Size</button>
+        </div>
     </div>
-  </div>
 
-  <div class="drive__section" *ngIf="files.length > 0">
-    <div class="drive__section-title">Files</div>
+    <div class="drive__loading" *ngIf="loading">Loading files...</div>
 
-    <div class="drive__grid drive__grid--files">
-      <div class="file-card" *ngFor="let file of files">
-        <div class="file-card__name">{{ file.name }}</div>
-        <div class="file-card__meta">{{ formatFileSize(file.size) }}</div>
-        <div class="file-card__preview"></div>
-      </div>
+    <div class="drive__section" *ngIf="folders.length > 0">
+        <div class="drive__section-title">Folders</div>
+
+        <div class="drive__grid drive__grid--folders">
+            <div class="folder-card" *ngFor="let folder of folders" (click)="onFolderClick(folder)">
+                <div class="folder-card__left">
+                    📁
+                    <span>{{ folder.name }}</span>
+                </div>
+                <div class="folder-card__menu">⋮</div>
+            </div>
+        </div>
     </div>
-  </div>
 
+    <div class="drive__section" *ngIf="files.length > 0">
+        <div class="drive__section-title">Files</div>
 
-  <div class="drive__empty" *ngIf="!loading && files.length === 0 && folders.length === 0">
-    <p>No files or folders yet. Click <strong>+ New</strong> to upload a file.</p>
-  </div>
-
-
-  <div class="dialog-backdrop" *ngIf="showDialog">
-    <div class="dialog">
-      <h3>New Folder</h3>
-      <input
-        type="text"
-        [(ngModel)]="newFolderName"
-        placeholder="Folder name"
-        class="dialog__input"
-      />
-      <div class="dialog__actions">
-        <button (click)="closeDialog()">Cancel</button>
-        <button class="primary" (click)="createFolder()">Create</button>
-      </div>
+        <div class="drive__grid drive__grid--files">
+            <div class="file-card" *ngFor="let file of files">
+                <div class="file-card__name">{{ file.name }}</div>
+                <div class="file-card__meta">{{ formatFileSize(file.size) }}</div>
+                <div class="file-card__preview"></div>
+            </div>
+        </div>
     </div>
-  </div>
+
+
+    <div class="drive__empty" *ngIf="!loading && files.length === 0 && folders.length === 0">
+        <p>No files or folders yet. Click <strong>+ New</strong> to upload a file.</p>
+    </div>
+
+
+    <div class="dialog-backdrop" *ngIf="showDialog">
+        <div class="dialog">
+            <h3>New Folder</h3>
+            <input type="text" [(ngModel)]="newFolderName" placeholder="Folder name" class="dialog__input" />
+            <div class="dialog__actions">
+                <button (click)="closeDialog()">Cancel</button>
+                <button class="primary" (click)="createFolder()">Create</button>
+            </div>
+        </div>
+    </div>
 
 </div>

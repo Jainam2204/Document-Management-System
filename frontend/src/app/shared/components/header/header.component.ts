@@ -12,7 +12,7 @@ export class HeaderComponent {
 
   searchOpen = false;
 
-  onToggleSidebar(): void {
+  onToggleSidebar() {
     this.toggleSidebar.emit();
   }
 }

@@ -6,6 +6,7 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../services/auth/auth.service';
 import { BackendResponse } from '../../../../shared/models/BackendResponse';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ToastService } from '../../../../services/toast/toast.service';
 
 @Component({
     selector: 'app-register',
@@ -15,19 +16,23 @@ import { HttpErrorResponse } from '@angular/common/http';
 })
 export class RegisterComponent {
 
-    constructor(private router: Router, private authService: AuthService) { }
+    constructor(
+        private router: Router,
+        private authService: AuthService,
+        private toast: ToastService
+    ) { }
 
 
     register(userDetails: RegisterDetails) {
         this.authService.register(userDetails).subscribe({
             next: (res: BackendResponse) => {
-                alert(res.message);
+                this.toast.success(res.message);
                 this.router.navigate(['/auth/login']);
             },
 
             error: (err: HttpErrorResponse) => {
                 console.error('Error : ', err);
-                alert(err?.error?.message);
+                this.toast.error(err?.error?.message);
             }
         });
     }

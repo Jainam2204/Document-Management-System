@@ -32,7 +32,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     private router: Router
   ) {}
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.routeSub = this.route.params.subscribe(params => {
       this.currentFolderId = params['id'] || null;
       this.loadData();
@@ -42,12 +42,12 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy(): void {
+  ngOnDestroy() {
     this.uploadSub?.unsubscribe();
     this.routeSub?.unsubscribe();
   }
 
-  loadData(): void {
+  loadData() {
     this.loading = true;
     if (this.currentFolderId) {
       this.loadFolderContents();
@@ -56,13 +56,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
   }
 
-  loadRootContents(): void {
+  loadRootContents() {
     this.currentFolder = null;
     this.loadFolders();
     this.loadFiles();
   }
 
-  loadFolderContents(): void {
+  loadFolderContents() {
     if (!this.currentFolderId) return;
     this.fileService.getFolderContents(this.currentFolderId).subscribe({
       next: (res) => {
@@ -81,7 +81,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadFolders(): void {
+  loadFolders() {
     this.fileService.getUserFolders().subscribe({
       next: (res) => {
         if (res.success) {
@@ -94,7 +94,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadFiles(): void {
+  loadFiles() {
     this.fileService.getUserFiles().subscribe({
       next: (res) => {
         if (res.success) {
@@ -110,16 +110,16 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  openDialog(): void {
+  openDialog() {
     this.showDialog = true;
   }
 
-  closeDialog(): void {
+  closeDialog() {
     this.showDialog = false;
     this.newFolderName = '';
   }
 
-  createFolder(): void {
+  createFolder() {
     if (!this.newFolderName.trim()) return;
     this.fileService.createFolder(this.newFolderName.trim(), this.currentFolderId!).subscribe({
       next: (res) => {
@@ -128,21 +128,21 @@ export class HomeComponent implements OnInit, OnDestroy {
           this.toast.success('Folder created successfully');
           this.closeDialog();
         } else {
-          this.toast.error(res.message || 'Failed to create folder');
+          this.toast.error(res.message);
         }
       },
       error: (err) => {
         console.error('Error creating folder:', err);
-        this.toast.error('Failed to create folder');
+        this.toast.error(err?.error?.message);
       }
     });
   }
 
-  onFolderClick(folder: FolderRecord): void {
+  onFolderClick(folder: FolderRecord) {
     this.router.navigate(['/home', folder._id]);
   }
 
-  goBack(): void {
+  goBack() {
     if (this.currentFolder?.parentFolder) {
       this.router.navigate(['/home', this.currentFolder.parentFolder]);
     } else {

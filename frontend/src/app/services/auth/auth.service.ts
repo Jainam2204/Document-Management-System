@@ -33,4 +33,10 @@ export class AuthService {
             withCredentials: true
         });
     }
+
+    logout() {
+        return this.http.get<BackendResponse>(this.url + '/logout',{
+            withCredentials: true
+        });
+    }
 }

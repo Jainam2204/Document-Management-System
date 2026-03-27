@@ -6,6 +6,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { BackendResponse } from '../../../../shared/models/BackendResponse';
 import { Router } from '@angular/router';
 import { Verify } from '../../models/Verify';
+import { ToastService } from '../../../../services/toast/toast.service';
 
 @Component({
     selector: 'app-verify',
@@ -17,7 +18,11 @@ export class VerifyComponent {
 
     email:string =''
 
-    constructor(private router: Router, private authService: AuthService) { }
+    constructor(
+        private router: Router,
+        private authService: AuthService,
+        private toast: ToastService
+    ) { }
 
     ngOnInit() {
         this.email = history.state.email;
@@ -27,13 +32,13 @@ export class VerifyComponent {
     verify(verificationDetails: Verify) {
         this.authService.verify(verificationDetails).subscribe({
             next: (res: BackendResponse) => {
-                alert(res.message);
+                this.toast.success(res.message);
                 this.router.navigate(['/home']);
             },
 
             error: (err: HttpErrorResponse) => {
                 console.error('Error : ', err);
-                alert(err?.error?.message);
+                this.toast.error(err?.error?.message);
             }
         });
     }
