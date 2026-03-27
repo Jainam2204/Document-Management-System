@@ -16,7 +16,7 @@ export class ToastComponent implements OnInit, OnDestroy {
 
   constructor(private toastService: ToastService) {}
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.subs.add(
       this.toastService.toasts$.subscribe((toast: Toast) => {
         this.toasts.push(toast);
@@ -29,7 +29,7 @@ export class ToastComponent implements OnInit, OnDestroy {
     );
   }
 
-  remove(id: number): void {
+  remove(id: number) {
     const timer = this.timers.get(id);
     if (timer) {
       clearTimeout(timer);
@@ -51,7 +51,7 @@ export class ToastComponent implements OnInit, OnDestroy {
     return toast.id;
   }
 
-  ngOnDestroy(): void {
+  ngOnDestroy() {
     this.subs.unsubscribe();
     this.timers.forEach(t => clearTimeout(t));
   }

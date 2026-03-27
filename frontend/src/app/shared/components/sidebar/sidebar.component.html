@@ -15,7 +15,7 @@
     <ul class="sidebar-list">
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'files'" (click)="setActive('files')"
         id="sidebar-my-files">
-        <a class="sidebar-link" title="My Files">
+        <a class="sidebar-link" title="My Files" routerLink="/home">
           <img src="icons/folder.svg" alt="files" class="icon" />
           <span class="sidebar-label">My Files</span>
         </a>
@@ -23,7 +23,7 @@
 
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'trash'" (click)="setActive('trash')"
         id="sidebar-trash">
-        <a class="sidebar-link" title="Trash">
+        <a class="sidebar-link" title="Trash" routerLink="/trash">
           <img src="icons/trash.svg" alt="trash" class="icon" />
           <span class="sidebar-label">Trash</span>
         </a>
@@ -54,3 +54,14 @@
 
 <div class="sidebar-overlay" *ngIf="!collapsed && isMobile" (click)="onOverlayClick()" id="sidebar-overlay">
 </div>
+
+<!-- <div class="dialog-backdrop" *ngIf="showDialog">
+  <div class="dialog">
+    <h3>New Folder</h3>
+    <input type="text" [(ngModel)]="newFolderName" placeholder="Folder name" class="dialog__input" />
+    <div class="dialog__actions">
+      <button (click)="closeDialog()">Cancel</button>
+      <button class="primary" (click)="createFolder()">Create</button>
+    </div>
+  </div>
+</div> -->

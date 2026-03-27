@@ -317,3 +317,36 @@
     --sidebar-width: 200px;
   }
 }
+
+.dialog {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 300px;
+}
+
+.dialog__input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.dialog__actions button {
+  padding: 6px 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.dialog__actions .primary {
+  background: #007bff;
+  color: #fff;
+}

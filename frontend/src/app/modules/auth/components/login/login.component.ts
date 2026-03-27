@@ -6,6 +6,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { LoginDetails } from '../../models/LoginDetails';
 import { LoginResponse } from '../../models/LoginResponse';
 import { AuthService } from '../../../../services/auth/auth.service';
+import { ToastService } from '../../../../services/toast/toast.service';
 
 @Component({
   selector: 'app-login',
@@ -15,12 +16,16 @@ import { AuthService } from '../../../../services/auth/auth.service';
 })
 export class LoginComponent {
 errorMsg: string = '';
-    constructor(private router: Router, private authService: AuthService) { }
+    constructor(
+        private router: Router, 
+        private authService: AuthService,
+        private toast: ToastService
+    ) { }
 
     login(loginDetails: LoginDetails) {
         this.authService.login(loginDetails).subscribe({
             next: (res: LoginResponse) => {
-                alert(res.message);
+                this.toast.success(res.message);
 				this.router.navigate(['/home']);
 				// this.router.navigate(['/auth/verify'], { state: { email: loginDetails.email } });
             },
