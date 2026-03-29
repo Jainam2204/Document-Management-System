@@ -2,10 +2,15 @@ import mongoose from "mongoose";
 
 const shareLinkSchema = new mongoose.Schema(
     {
-        file: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "File",
+        resourceType: {
+            type: String,
+            enum: ['file', 'folder'],
             required: true
+        },
+        resourceId: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            refPath: 'resourceType'
         },
 
         token: {

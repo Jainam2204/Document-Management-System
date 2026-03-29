@@ -66,13 +66,20 @@ interface GetFolderContentsResponse {
 
 interface CreateFolderResponse {
     success: boolean;
+    message: string;
     folder: FolderRecord;
 }
 
-interface CreateFolderResponse {
+interface GenericResponse {
     success: boolean;
     message: string;
-    folder: FolderRecord;
+}
+
+interface ShareLinkResponse {
+    success: boolean;
+    url: string;
+    expiresAt: string;
+    message?: string;
 }
 
 @Injectable({
@@ -92,7 +99,6 @@ export class FileService {
         return this.http.post<UploadUrlResponse>(
             this.url + '/upload-url',
             { fileName, fileType, fileSize }
-            // { withCredentials: true }
         );
     }
 
@@ -140,6 +146,28 @@ export class FileService {
 
     getFolderContents(folderId: string): Observable<GetFolderContentsResponse> {
         return this.http.get<GetFolderContentsResponse>(this.url + '/folders/' + folderId);
+    }
+
+    renameFile(fileId: string, newName: string): Observable<GenericResponse> {
+        return this.http.post<GenericResponse>(this.url + '/rename/' + fileId, { newName });
+    }
+
+    renameFolder(folderId: string, newName: string): Observable<GenericResponse> {
+        return this.http.post<GenericResponse>(this.url + '/folders/rename/' + folderId, { newName });
+    }
+
+    deleteFile(fileId: string): Observable<GenericResponse> {
+        return this.http.post<GenericResponse>(this.url + '/delete/' + fileId, {});
+    }
+
+    deleteFolder(folderId: string): Observable<GenericResponse> {
+        return this.http.post<GenericResponse>(this.url + '/folders/delete/' + folderId, {});
+    }
+
+    createShareLink(resourceType: 'file' | 'folder', resourceId: string, expiry?: string): Observable<ShareLinkResponse> {
+        return this.http.post<ShareLinkResponse>(this.url + `/share/${resourceType}/${resourceId}`, {
+            expiry: expiry || null,
+        });
     }
 
     createFolder(name: string, parentId?: string | null): Observable<CreateFolderResponse> {

@@ -1,11 +1,14 @@
 import 'dotenv/config';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import s3 from '../config/s3.js';
 import File from '../models/File.js';
 import Folder from '../models/Folder.js';
 import User from '../models/User.js';
 import Counter from '../models/Counter.js';
+import ShareLink from '../models/ShareLink.js';
+import { generateToken } from '../utils/generateToken.js';
+import { generateDownloadUrl } from '../utils/generateDownloadURL.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export const getUploadUrl = async (req, res) => {
@@ -431,6 +434,13 @@ export const renameFile = async (req, res) => {
         const fileId = req.params.id;
         const { newName } = req.body;
 
+        if (!newName || !newName.trim()) {
+            return res.status(400).send({
+                success: false,
+                message: 'New name must not be empty'
+            });
+        }
+
         const file = await File.findOne({
             _id: fileId,
             owner: req.user._id,
@@ -444,13 +454,44 @@ export const renameFile = async (req, res) => {
             });
         }
 
-        file.name = newName;
+        const trimmedName = newName.trim();
+        const folderId = file.folder || null;
+        const duplicateName = await File.findOne({
+            owner: req.user._id,
+            folder: folderId,
+            name: trimmedName,
+            isDeleted: false,
+            _id: { $ne: fileId }
+        });
+
+        if (!duplicateName) {
+            file.name = trimmedName;
+        } else {
+            const extensionIndex = trimmedName.lastIndexOf('.');
+            const baseName = extensionIndex >= 0 ? trimmedName.slice(0, extensionIndex) : trimmedName;
+            const extension = extensionIndex >= 0 ? trimmedName.slice(extensionIndex) : '';
+            let counter = 1;
+            let candidate = `${baseName}(${counter})${extension}`;
+
+            while (await File.findOne({
+                owner: req.user._id,
+                folder: folderId,
+                name: candidate,
+                isDeleted: false
+            })) {
+                counter += 1;
+                candidate = `${baseName}(${counter})${extension}`;
+            }
+
+            file.name = candidate;
+        }
 
         await file.save();
 
         return res.status(200).json({
             success: true,
-            message: 'File renamed successfully'
+            message: 'File renamed successfully',
+            file
         });
     } catch (err) {
         console.error('Error : ', err);
@@ -466,7 +507,14 @@ export const renameFolder = async (req, res) => {
         const folderId = req.params.id;
         const { newName } = req.body;
 
-        const folder = await File.findOne({
+        if (!newName || !newName.trim()) {
+            return res.status(400).send({
+                success: false,
+                message: 'New folder name must not be empty'
+            });
+        }
+
+        const folder = await Folder.findOne({
             _id: folderId,
             owner: req.user._id,
             isDeleted: false
@@ -475,23 +523,213 @@ export const renameFolder = async (req, res) => {
         if (!folder) {
             return res.status(404).send({
                 success: false,
-                message: 'folder not found'
+                message: 'Folder not found'
             });
         }
 
-        folder.name = newName;
+        const trimmedName = newName.trim();
+        const existingFolder = await Folder.findOne({
+            owner: req.user._id,
+            parentFolder: folder.parentFolder || null,
+            name: trimmedName,
+            isDeleted: false,
+            _id: { $ne: folderId }
+        });
 
+        if (existingFolder) {
+            return res.status(400).json({
+                success: false,
+                message: 'A folder with this name already exists in the same location'
+            });
+        }
+
+        folder.name = trimmedName;
         await folder.save();
 
         return res.status(200).json({
             success: true,
-            message: 'Folder renamed successfully'
+            message: 'Folder renamed successfully',
+            folder
         });
     } catch (err) {
         console.error('Error : ', err);
         res.status(400).json({
             success: false,
-            message: 'Error occured while renaming file'
+            message: 'Error occured while renaming folder'
+        });
+    }
+}
+
+export const generateShareLink = async (req, res) => {
+    try {
+        const { expiry } = req.body;
+        const { type, id } = req.params;
+
+        if (!['file', 'folder'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid resource type for sharing'
+            });
+        }
+
+        const Model = type === 'file' ? File : Folder;
+        const resource = await Model.findOne({
+            _id: id,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!resource) {
+            return res.status(404).json({
+                success: false,
+                message: `${type.charAt(0).toUpperCase() + type.slice(1)} not found`
+            });
+        }
+
+        const expiresAt = expiry ? new Date(expiry) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid expiry date'
+            });
+        }
+
+        const expiresInSeconds = Math.min(
+            Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
+            604800
+        );
+
+        const token = generateToken();
+        await ShareLink.create({
+            resourceType: type,
+            resourceId: resource._id,
+            token,
+            expiresAt,
+            createdBy: req.user._id
+        });
+
+        if (type === 'file') {
+            try {
+                const headCommand = new HeadObjectCommand({
+                    Bucket: process.env.AWS_BUCKET_NAME,
+                    Key: resource.s3Key
+                });
+                await s3.send(headCommand);
+            } catch (headError) {
+                console.error('Share file head object failed:', headError);
+                return res.status(404).json({
+                    success: false,
+                    message: 'Shared file does not exist in S3'
+                });
+            }
+
+            const downloadUrl = await generateDownloadUrl(resource.s3Key, expiresInSeconds);
+            return res.status(201).json({
+                success: true,
+                url: downloadUrl,
+                expiresAt: expiresAt.toISOString()
+            });
+        }
+
+        const url = `${req.protocol}://${req.get('host')}/api/files/share/${token}`;
+        return res.status(201).json({
+            success: true,
+            url,
+            expiresAt: expiresAt.toISOString()
+        });
+    } catch (err) {
+        console.error('Error : ', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error occured while generating share link'
+        });
+    }
+}
+
+export const getSharedResource = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const shareLink = await ShareLink.findOne({
+            token,
+            expiresAt: { $gt: new Date() }
+        });
+
+        if (!shareLink) {
+            return res.status(404).json({
+                success: false,
+                message: 'Share link is invalid or expired'
+            });
+        }
+
+        if (shareLink.resourceType === 'file') {
+            const file = await File.findOne({
+                _id: shareLink.resourceId,
+                isDeleted: false
+            });
+
+            if (!file) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Shared file not found'
+                });
+            }
+
+            try {
+                const headCommand = new HeadObjectCommand({
+                    Bucket: process.env.AWS_BUCKET_NAME,
+                    Key: file.s3Key
+                });
+                await s3.send(headCommand);
+            } catch (headError) {
+                console.error('Shared file head check failed:', headError);
+                return res.status(404).json({
+                    success: false,
+                    message: 'Shared file does not exist in S3'
+                });
+            }
+
+            const downloadUrl = await generateDownloadUrl(file.s3Key, 300);
+            return res.redirect(downloadUrl);
+        }
+
+        const folder = await Folder.findOne({
+            _id: shareLink.resourceId,
+            isDeleted: false
+        });
+
+        if (!folder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Shared folder not found'
+            });
+        }
+
+        const files = await File.find({
+            folder: folder._id,
+            isDeleted: false
+        });
+
+        const sharedFiles = await Promise.all(
+            files.map(async (file) => ({
+                id: file._id,
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                downloadUrl: await generateDownloadUrl(file.s3Key, 300)
+            }))
+        );
+
+        return res.status(200).json({
+            success: true,
+            type: 'folder',
+            folder: { id: folder._id, name: folder.name },
+            files: sharedFiles
+        });
+    } catch (err) {
+        console.error('Error : ', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error occured while resolving share link'
         });
     }
 }

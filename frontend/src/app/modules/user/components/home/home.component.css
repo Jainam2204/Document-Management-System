@@ -192,11 +192,10 @@
   border-radius: 6px;
 }
 
-.dialog__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 15px;
+.dialog-error {
+  margin-top: 12px;
+  color: #c5221f;
+  font-size: 13px;
 }
 
 .dialog__actions button {

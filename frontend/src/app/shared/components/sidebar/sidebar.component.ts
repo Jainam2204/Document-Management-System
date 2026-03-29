@@ -29,10 +29,6 @@ export class SidebarComponent {
     uploading = false;
     parentFolderId: string | null = ''
 
-    // showDialog = false;
-    // newFolderName = '';
-    // currentFolderId: string | null = null;
-
     constructor(
         private fileService: FileService,
         private toast: ToastService,

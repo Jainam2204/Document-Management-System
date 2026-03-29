@@ -23,6 +23,15 @@ export class HomeComponent implements OnInit, OnDestroy {
   currentFolder: FolderRecord | null = null;
   openItemMenuKey: string | null = null;
 
+  actionDialogMode: 'rename' | 'delete' | 'share' | null = null;
+  actionDialogRecord: FolderRecord | FileRecord | null = null;
+  actionDialogInput = '';
+  actionDialogError = '';
+  actionDialogLoading = false;
+  shareExpiryDate = '';
+  shareExpiryTime = '';
+  shareUrl = '';
+
   private uploadSub!: Subscription;
   private routeSub!: Subscription;
 
@@ -140,30 +149,168 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.uploadFolder(event.data, parentId);
         break;
       case 'rename':
-        this.handleRename(event.data);
+        this.openActionDialog('rename', event.data);
         break;
       case 'share':
-        this.toast.warning('Sharing is not available yet.');
+        this.openActionDialog('share', event.data);
         break;
       case 'delete':
-        this.handleDelete(event.data);
+        this.openActionDialog('delete', event.data);
         break;
     }
   }
 
-  private handleRename(record: FolderRecord | FileRecord): void {
-    const name = prompt('New name', record.name);
-    if (!name?.trim() || name.trim() === record.name) {
-      return;
-    }
-    this.toast.warning('Rename is not available yet — no API wired for this action.');
+  openActionDialog(mode: 'rename' | 'delete' | 'share', record: FolderRecord | FileRecord): void {
+    this.actionDialogMode = mode;
+    this.actionDialogRecord = record;
+    this.actionDialogError = '';
+    this.actionDialogLoading = false;
+    this.shareUrl = '';
+    this.shareExpiryDate = '';
+    this.shareExpiryTime = '';
+    this.actionDialogInput = mode === 'rename' ? record.name : '';
   }
 
-  private handleDelete(record: FolderRecord | FileRecord): void {
-    if (!confirm(`Delete "${record.name}"? This cannot be undone.`)) {
+  closeActionDialog(): void {
+    this.actionDialogMode = null;
+    this.actionDialogRecord = null;
+    this.actionDialogInput = '';
+    this.actionDialogError = '';
+    this.actionDialogLoading = false;
+    this.shareUrl = '';
+  }
+
+  submitRename(): void {
+    if (!this.actionDialogRecord) {
       return;
     }
-    this.toast.warning('Delete is not available yet — no API wired for this action.');
+
+    const newName = this.actionDialogInput.trim();
+    if (!newName) {
+      this.actionDialogError = 'Name cannot be empty.';
+      return;
+    }
+    if (newName.length > 100) {
+      this.actionDialogError = 'Name must be 100 characters or less.';
+      return;
+    }
+
+    this.actionDialogLoading = true;
+    const isFile = this.isFileRecord(this.actionDialogRecord);
+    const request$ = isFile
+      ? this.fileService.renameFile(this.actionDialogRecord._id, newName)
+      : this.fileService.renameFolder(this.actionDialogRecord._id, newName);
+
+    request$.subscribe({
+      next: (res) => {
+        this.actionDialogLoading = false;
+        if (res.success) {
+          this.toast.success(`${isFile ? 'File' : 'Folder'} renamed successfully.`);
+          this.updateRenamedRecord(this.actionDialogRecord!, newName);
+          this.closeActionDialog();
+        } else {
+          this.actionDialogError = res.message || 'Rename failed.';
+        }
+      },
+      error: (err) => {
+        this.actionDialogLoading = false;
+        this.actionDialogError = err?.error?.message || 'Rename failed.';
+      }
+    });
+  }
+
+  submitDelete(): void {
+    if (!this.actionDialogRecord) {
+      return;
+    }
+
+    this.actionDialogLoading = true;
+    const isFile = this.isFileRecord(this.actionDialogRecord);
+    const request$ = isFile
+      ? this.fileService.deleteFile(this.actionDialogRecord._id)
+      : this.fileService.deleteFolder(this.actionDialogRecord._id);
+
+    request$.subscribe({
+      next: (res) => {
+        this.actionDialogLoading = false;
+        if (res.success) {
+          this.toast.success(`${isFile ? 'File' : 'Folder'} deleted successfully.`);
+          this.removeDeletedRecord(this.actionDialogRecord!);
+          this.closeActionDialog();
+        } else {
+          this.actionDialogError = res.message || 'Delete failed.';
+        }
+      },
+      error: (err) => {
+        this.actionDialogLoading = false;
+        this.actionDialogError = err?.error?.message || 'Delete failed.';
+      }
+    });
+  }
+
+  submitShare(): void {
+    if (!this.actionDialogRecord) {
+      return;
+    }
+
+    this.actionDialogLoading = true;
+    const resourceType = this.isFileRecord(this.actionDialogRecord) ? 'file' : 'folder';
+    const expiry = this.shareExpiryDate && this.shareExpiryTime
+      ? `${this.shareExpiryDate}T${this.shareExpiryTime}:00`
+      : undefined;
+
+    this.fileService.createShareLink(resourceType, this.actionDialogRecord._id, expiry).subscribe({
+      next: (res) => {
+        this.actionDialogLoading = false;
+        if (res.success) {
+          this.shareUrl = res.url;
+          this.toast.success('Share link created.');
+        } else {
+          this.actionDialogError = res.message || 'Unable to create share link.';
+        }
+      },
+      error: (err) => {
+        this.actionDialogLoading = false;
+        this.actionDialogError = err?.error?.message || 'Unable to create share link.';
+      }
+    });
+  }
+
+  copyShareUrl(): void {
+    if (!this.shareUrl) {
+      return;
+    }
+    navigator.clipboard?.writeText(this.shareUrl).then(() => {
+      this.toast.success('Share link copied to clipboard.');
+    }).catch(() => {
+      this.toast.error('Could not copy share link.');
+    });
+  }
+
+  private updateRenamedRecord(record: FolderRecord | FileRecord, newName: string): void {
+    if (this.isFileRecord(record)) {
+      this.files = this.files.map((file) => file._id === record._id ? { ...file, name: newName } : file);
+    } else {
+      this.folders = this.folders.map((folder) => folder._id === record._id ? { ...folder, name: newName } : folder);
+      if (this.currentFolder && this.currentFolder._id === record._id) {
+        this.currentFolder = { ...this.currentFolder, name: newName };
+      }
+    }
+  }
+
+  private removeDeletedRecord(record: FolderRecord | FileRecord): void {
+    if (this.isFileRecord(record)) {
+      this.files = this.files.filter((file) => file._id !== record._id);
+    } else {
+      this.folders = this.folders.filter((folder) => folder._id !== record._id);
+      if (this.currentFolder && this.currentFolder._id === record._id) {
+        this.router.navigate(['/home']);
+      }
+    }
+  }
+
+  isFileRecord(record: FolderRecord | FileRecord): record is FileRecord {
+    return 's3Key' in record;
   }
 
   private createFolder(name: string, parentId: string | null): void {

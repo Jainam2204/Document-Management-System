@@ -4,7 +4,6 @@
         <div class="drive__breadcrumb">
             <button *ngIf="currentFolder" type="button" (click)="goBack()" class="back-btn">
                 <img src="/icons/back.svg" alt="Back" class="back-icon" />
-                <!-- Back -->
             </button>
             <div class="drive__title-row">
                 <span class="drive__folder-title">{{ currentFolder ? currentFolder.name : 'Home' }}</span>
@@ -20,6 +19,78 @@
             <button type="button" class="chip">Date</button>
             <button type="button" class="chip">Size</button>
         </div>
+    </div>
+
+    <div *ngIf="actionDialogMode" class="dialog-backdrop" (click)="closeActionDialog()">
+      <div class="dialog" (click)="$event.stopPropagation()">
+        <h3 class="dialog-title">
+          {{ actionDialogMode === 'rename' ? 'Rename ' + (actionDialogRecord && !isFileRecord(actionDialogRecord) ? 'Folder' : 'File') : actionDialogMode === 'delete' ? 'Delete Confirmation' : 'Share item' }}
+        </h3>
+
+        <p *ngIf="actionDialogMode === 'delete'">
+          Are you sure you want to delete "{{ actionDialogRecord?.name }}"? This cannot be undone.
+        </p>
+
+        <div *ngIf="actionDialogMode === 'rename'">
+          <label for="rename-input">New name</label>
+          <input
+            id="rename-input"
+            type="text"
+            class="dialog__input"
+            [(ngModel)]="actionDialogInput"
+            placeholder="Enter new name"
+          />
+        </div>
+
+        <div *ngIf="actionDialogMode === 'share'">
+          <p>Generate a shareable link for "{{ actionDialogRecord?.name }}".</p>
+          <label for="share-date">Expiry date (optional)</label>
+          <input id="share-date" type="date" class="dialog__input" [(ngModel)]="shareExpiryDate" />
+          <label for="share-time">Expiry time (optional)</label>
+          <input id="share-time" type="time" class="dialog__input" [(ngModel)]="shareExpiryTime" />
+
+          <div *ngIf="shareUrl" style="margin-top: 12px;">
+            <label>Share link</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" class="dialog__input" [value]="shareUrl" readonly />
+              <button type="button" class="primary" (click)="copyShareUrl()">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="dialog-error" *ngIf="actionDialogError">{{ actionDialogError }}</p>
+
+        <div class="dialog__actions">
+          <button type="button" (click)="closeActionDialog()" [disabled]="actionDialogLoading">Cancel</button>
+          <button
+            *ngIf="actionDialogMode === 'rename'"
+            type="button"
+            class="primary"
+            (click)="submitRename()"
+            [disabled]="actionDialogLoading"
+          >
+            Rename
+          </button>
+          <button
+            *ngIf="actionDialogMode === 'delete'"
+            type="button"
+            class="primary"
+            (click)="submitDelete()"
+            [disabled]="actionDialogLoading"
+          >
+            Delete
+          </button>
+          <button
+            *ngIf="actionDialogMode === 'share'"
+            type="button"
+            class="primary"
+            (click)="submitShare()"
+            [disabled]="actionDialogLoading || shareUrl"
+          >
+            Generate
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="drive__loading" *ngIf="loading">Loading files...</div>
