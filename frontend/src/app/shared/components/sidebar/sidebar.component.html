@@ -2,21 +2,14 @@
   <nav class="sidebar-nav" aria-label="Main navigation">
 
     <div class="sidebar-new">
-      <button class="new-btn" (click)="toggleNewMenu()">+ New</button>
-      <div class="new-dropdown" *ngIf="showNewMenu">
-        <button class="new-dropdown-item" (click)="createFolder()">📁 New Folder</button>
-        <button class="new-dropdown-item" (click)="triggerFileUpload()">📄 Upload File</button>
-        <button class="new-dropdown-item" (click)="triggerFolderUpload()">📂 Upload Folder</button>
-      </div>
-      <input type="file" #fileInput hidden (change)="onFileSelected($event)" />
-      <input type="file" #folderInput hidden multiple webkitdirectory (change)="onFolderSelected($event)" />
+      <app-file-action-dropdown variant="sidebar" (action)="onAction($event)"></app-file-action-dropdown>
     </div>
 
     <ul class="sidebar-list">
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'files'" (click)="setActive('files')"
         id="sidebar-my-files">
         <a class="sidebar-link" title="My Files" routerLink="/home">
-          <img src="icons/folder.svg" alt="files" class="icon" />
+          <img src="/icons/folder.svg" alt="files" class="icon" />
           <span class="sidebar-label">My Files</span>
         </a>
       </li>
@@ -24,14 +17,14 @@
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'trash'" (click)="setActive('trash')"
         id="sidebar-trash">
         <a class="sidebar-link" title="Trash" routerLink="/trash">
-          <img src="icons/trash.svg" alt="trash" class="icon" />
+          <img src="/icons/trash.svg" alt="trash" class="icon" />
           <span class="sidebar-label">Trash</span>
         </a>
       </li>
 
       <li class="sidebar-item sidebar-item--storage" id="sidebar-storage">
         <div class="sidebar-link sidebar-link--static" title="Used Storage">
-          <img src="icons/cloud.svg" alt="storage" class="icon" />
+          <img src="/icons/cloud.svg" alt="storage" class="icon" />
           <div class="storage-info">
             <span class="sidebar-label">Used Storage</span>
             <span class="storage-percent">{{ storageUsed }}% used</span>
@@ -46,7 +39,7 @@
 
   <footer class="sidebar-footer">
     <button class="logout-btn" id="sidebar-logout" title="Logout" (click)="onLogout()">
-      <img src="icons/logout.svg" alt="logout" class="icon" />
+      <img src="/icons/logout.svg" alt="logout" class="icon" />
       <span class="sidebar-label">Logout</span>
     </button>
   </footer>

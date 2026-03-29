@@ -2,17 +2,17 @@
 
   <div class="header-left">
     <button class="icon-btn" id="hamburger-btn" (click)="onToggleSidebar()" aria-label="Toggle sidebar">
-      <img src="icons/menu.svg" alt="menu" class="icon" />
+      <img src="/icons/menu.svg" alt="menu" class="icon" />
     </button>
     <a class="logo" href="/">
-      <img src="icons/document.svg" alt="logo" class="icon icon--logo" />
+      <img src="/icons/logo.svg" alt="logo" class="icon icon--logo" />
       <span class="logo-text">DMS</span>
     </a>
   </div>
 
   <div class="header-center" [class.header-center--open]="searchOpen">
     <div class="search-box" id="header-search">
-      <img src="icons/search.svg" alt="search" class="icon" />
+      <img src="/icons/search.svg" alt="search" class="icon" />
       <input
         type="text"
         class="search-input"
@@ -21,19 +21,19 @@
         aria-label="Search files"
       />
       <button class="icon-btn search-close" *ngIf="searchOpen" (click)="searchOpen = false" aria-label="Close search">
-        <img src="icons/close.svg" alt="close" class="icon icon--sm" />
+        <img src="/icons/close.svg" alt="close" class="icon icon--sm" />
       </button>
     </div>
   </div>
 
   <button class="icon-btn search-toggle" id="search-toggle-btn" (click)="searchOpen = true" aria-label="Open search">
-    <img src="icons/search.svg" alt="search" class="icon" />
+    <img src="/icons/search.svg" alt="search" class="icon" />
   </button>
 
   <div class="header-right">
     <button class="avatar-btn" aria-label="Profile">
       <div class="avatar" id="header-avatar">
-        <img src="icons/user.svg" alt="profile" class="icon icon--avatar" />
+        <img src="/icons/user.svg" alt="profile" class="icon icon--avatar" />
       </div>
     </button>
   </div>

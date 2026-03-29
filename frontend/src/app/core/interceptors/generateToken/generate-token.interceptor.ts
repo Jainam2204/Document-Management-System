@@ -23,9 +23,13 @@ export const generateTokenInterceptor: HttpInterceptorFn = (req, next) => {
                         if (res.success) {
                             newToken = cookieService.getCookie('accessToken');
                         }
+
+                        if (!newToken) {
+                            throw new Error('Token not found after generation');
+                        }
                         const newReq = req.clone({
                             setHeaders: {
-                                'x-access-token': newToken!
+                                'x-access-token': newToken
                             }
                         });
 
@@ -33,8 +37,8 @@ export const generateTokenInterceptor: HttpInterceptorFn = (req, next) => {
                     }),
                     catchError((error: HttpErrorResponse) => {
                         if (error.status === 401) {
-                            toast.error('Please login again');
-                            router.navigate(['auth/login']);
+                            toast.error('Please login again.....');
+                            router.navigate(['/auth/login']);
                         }
                         return throwError(() => error)
                     })

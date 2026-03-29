@@ -1,0 +1,118 @@
+<div class="fad">
+  <!-- Sidebar: + New pill -->
+  @if (variant === 'sidebar') {
+    <button
+      type="button"
+      class="fad__trigger fad__trigger--new"
+      (click)="toggleDropdown($event)"
+      aria-haspopup="true"
+      [attr.aria-expanded]="showDropdown"
+    >
+      <span class="fad__plus" aria-hidden="true">+</span>
+      <span>New</span>
+    </button>
+  }
+
+  <!-- Header: chevron next to folder title -->
+  @if (variant === 'headerDropdown') {
+    <button
+      type="button"
+      class="fad__trigger fad__trigger--header"
+      (click)="toggleDropdown($event)"
+      aria-label="Folder actions"
+      aria-haspopup="true"
+      [attr.aria-expanded]="showDropdown"
+    >
+      <img src="/icons/dropdown.svg" alt="" class="fad__icon fad__icon--chevron" width="20" height="20" />
+    </button>
+  }
+
+  @if (variant === 'itemDropdown') {
+    <button
+      type="button"
+      class="fad__trigger fad__trigger--item"
+      [class.fad__trigger--item-file]="item && isFileRecord(item)"
+      [class.fad__trigger--item-folder]="item && !isFileRecord(item)"
+      (click)="toggleDropdown($event)"
+      [attr.aria-label]="item ? 'Actions for ' + item.name : 'Item actions'"
+      aria-haspopup="true"
+      [attr.aria-expanded]="showDropdown"
+    >
+      <img src="/icons/three-dots.svg" alt="" class="fad__icon fad__icon--dots" width="20" height="20" />
+    </button>
+  }
+
+  @if (showDropdown) {
+    <div class="fad__dropdown-backdrop" (click)="closeDropdown()"></div>
+    <div
+      class="fad__panel"
+      [class.fad__panel--sidebar]="variant === 'sidebar'"
+      [class.fad__panel--header]="variant === 'headerDropdown'"
+      [class.fad__panel--item]="variant === 'itemDropdown'"
+      role="menu"
+      (click)="$event.stopPropagation()"
+    >
+      @if (variant === 'sidebar' || variant === 'headerDropdown') {
+        <button type="button" class="fad__menu-item" role="menuitem" (click)="onMenuNewFolder($event)">
+          <span class="fad__menu-ico" aria-hidden="true">📁</span>
+          <span>New Folder</span>
+        </button>
+        <button type="button" class="fad__menu-item" role="menuitem" (click)="onMenuUploadFile($event)">
+          <span class="fad__menu-ico" aria-hidden="true">📄</span>
+          <span>Upload File</span>
+        </button>
+        <button type="button" class="fad__menu-item" role="menuitem" (click)="onMenuUploadFolder($event)">
+          <span class="fad__menu-ico" aria-hidden="true">📂</span>
+          <span>Upload Folder</span>
+        </button>
+        @if (variant === 'headerDropdown' && headerContext) {
+          <div class="fad__divider" role="separator"></div>
+          <button type="button" class="fad__menu-item" role="menuitem" (click)="emitRename($event)">
+            <span class="fad__menu-ico" aria-hidden="true">✏️</span>
+            <span>Rename</span>
+          </button>
+          <button type="button" class="fad__menu-item" role="menuitem" (click)="emitDelete($event)">
+            <span class="fad__menu-ico" aria-hidden="true">🗑️</span>
+            <span>Delete</span>
+          </button>
+        }
+      }
+
+      @if (variant === 'itemDropdown' && item) {
+        <button type="button" class="fad__menu-item" role="menuitem" (click)="emitRename($event)">
+          <span class="fad__menu-ico" aria-hidden="true">✏️</span>
+          <span>Rename</span>
+        </button>
+        <button type="button" class="fad__menu-item" role="menuitem" (click)="emitShare($event)">
+          <span class="fad__menu-ico" aria-hidden="true">🔗</span>
+          <span>Share</span>
+        </button>
+        <button type="button" class="fad__menu-item fad__menu-item--danger" role="menuitem" (click)="emitDelete($event)">
+          <span class="fad__menu-ico" aria-hidden="true">🗑️</span>
+          <span>Delete</span>
+        </button>
+      }
+    </div>
+  }
+</div>
+
+@if (showNewFolderDialog) {
+  <div class="fad__overlay" (click)="closeDialog()">
+    <div class="fad__dialog" (click)="$event.stopPropagation()">
+      <h3 class="fad__dialog-title">Create New Folder</h3>
+      <input
+        type="text"
+        class="fad__dialog-input"
+        [(ngModel)]="newFolderName"
+        placeholder="Enter folder name"
+        (keyup.enter)="createFolder()"
+      />
+      <div class="fad__dialog-actions">
+        <button type="button" class="fad__btn fad__btn--secondary" (click)="closeDialog()">Cancel</button>
+        <button type="button" class="fad__btn fad__btn--primary" (click)="createFolder()" [disabled]="!newFolderName.trim()">
+          Create
+        </button>
+      </div>
+    </div>
+  </div>
+}

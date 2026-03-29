@@ -5,12 +5,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FileService } from '../../../services/file/file.service';
 import { ToastService } from '../../../services/toast/toast.service';
 import { AuthService } from '../../../services/auth/auth.service';
+import { RouteHelperService } from '../../../services/route-helper/route-helper.service';
+import { FileActionDropdownComponent } from '../../../modules/user/components/file-action-dropdown/file-action-dropdown.component';
 import { BackendResponse } from '../../models/BackendResponse';
-import { catchError, EMPTY, filter, finalize, map, switchMap, tap } from 'rxjs';
+import { concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finalize } from 'rxjs';
 
 @Component({
     selector: 'app-sidebar',
-    imports: [CommonModule],
+    imports: [CommonModule, FileActionDropdownComponent],
     templateUrl: './sidebar.component.html',
     styleUrl: './sidebar.component.css'
 })
@@ -36,7 +38,8 @@ export class SidebarComponent {
         private toast: ToastService,
         private router: Router,
         private authService: AuthService,
-        private route: ActivatedRoute
+        private route: ActivatedRoute,
+        private routeHelper: RouteHelperService
     ) {
         this.checkMobile();
     }
@@ -50,9 +53,7 @@ export class SidebarComponent {
     }
 
     getFolderId() {
-        const url = this.router.url;
-        const parts = url.split('/');
-        return parts.length > 2 ? parts[2] : null;
+        return this.routeHelper.getParentFolderIdFromUrl();
     }
 
     createFolder() {
@@ -346,7 +347,7 @@ export class SidebarComponent {
     ).subscribe();
 }
 
-    async onFolderSelected(event: any): Promise<void> {
+    onFolderSelected(event: any): void {
         const fileList: FileList = event.target.files;
 
         if (!fileList || fileList.length === 0) {
@@ -388,67 +389,142 @@ export class SidebarComponent {
         this.uploading = true;
         this.toast.warning(`Uploading folder "${rootName}" (${files.length} files)...`);
 
-        try {
-            const treeRes = await this.fileService
-                .createFolderTree(rootName, Array.from(folderPaths))
-                .toPromise();
+        // Create folder tree first
+        this.fileService.createFolderTree(rootName, Array.from(folderPaths)).pipe(
+            tap(treeRes => {
+                if (!treeRes?.success) {
+                    throw new Error("Failed to create folder structure");
+                }
+            }),
+            // Then upload files sequentially
+            concatMap(treeRes => {
+                const pathToIdMap = treeRes.pathToIdMap;
+                let uploaded = 0;
 
-            if (!treeRes?.success) {
-                this.toast.error("Failed to create folder structure");
-                return;
+                return from(files).pipe(
+                    concatMap(file => {
+                        const relativePath = (file as any).webkitRelativePath;
+                        const parts = relativePath.split('/');
+                        const parentSubPath = parts.slice(1, -1).join('/');
+
+                        const folderId = parentSubPath === ''
+                            ? pathToIdMap['']
+                            : pathToIdMap[parentSubPath];
+
+                        return this.fileService.getUploadUrl(file.name, file.type || 'application/octet-stream', file.size).pipe(
+                            concatMap(urlRes => {
+                                if (!urlRes?.success) {
+                                    return EMPTY; // Skip this file
+                                }
+
+                                return this.fileService.uploadToS3(urlRes.uploadUrl, file).pipe(
+                                    filter(event => event.type === HttpEventType.Response),
+                                    concatMap(() => this.fileService.saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId)),
+                                    tap(() => {
+                                        uploaded++;
+                                        this.toast.success(`Uploaded ${uploaded}/${files.length}`);
+                                    })
+                                );
+                            })
+                        );
+                    })
+                );
+            }),
+            catchError(err => {
+                console.error(err);
+                this.toast.error("Folder upload failed");
+                return EMPTY;
+            })
+        ).subscribe({
+            complete: () => {
+                this.toast.success(`Folder uploaded successfully!`);
+                this.fileService.fileUploaded$.next();
+                this.uploading = false;
+            },
+            error: () => {
+                this.uploading = false;
             }
-
-            const pathToIdMap = treeRes.pathToIdMap;
-
-            let uploaded = 0;
-
-            for (const file of files) {
-                const relativePath = (file as any).webkitRelativePath;
-                const parts = relativePath.split('/');
-                const parentSubPath = parts.slice(1, -1).join('/');
-
-                const folderId = parentSubPath === ''
-                    ? pathToIdMap['']
-                    : pathToIdMap[parentSubPath];
-
-                const urlRes = await this.fileService
-                    .getUploadUrl(file.name, file.type || 'application/octet-stream', file.size)
-                    .toPromise();
-
-                if (!urlRes?.success) continue;
-
-                await new Promise<void>((resolve, reject) => {
-                    this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
-                        next: (ev: any) => {
-                            if (ev.type === 4) resolve();
-                        },
-                        error: reject
-                    });
-                });
-
-                await this.fileService
-                    .saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId)
-                    .toPromise();
-
-                uploaded++;
-                this.toast.success(`Uploaded ${uploaded}/${files.length}`);
-            }
-
-            this.toast.success(`Folder uploaded successfully!`);
-            this.fileService.fileUploaded$.next();
-
-        } catch (err: any) {
-            console.error(err);
-            this.toast.error("Folder upload failed");
-        } finally {
-            this.uploading = false;
-        }
+        });
     }
 
     setActive(item: string) {
         this.activeItem = item;
         if (item === 'files') {
             this.router.navigate(['/home']);
+        }
+    }
+
+    onAction(event: {type: string, data?: any}) {
+        const parentId = this.routeHelper.getParentFolderIdFromUrl();
+        switch (event.type) {
+            case 'createFolder':
+                this.createFolderFromAction(event.data.name, parentId);
+                break;
+            case 'uploadFile':
+                this.uploadFile(event.data, parentId);
+                break;
+            case 'uploadFolder':
+                this.uploadFolder(event.data, parentId);
+                break;
+        }
+    }
+
+    private createFolderFromAction(name: string, parentId: string | null) {
+        this.fileService.createFolder(name, parentId || undefined).subscribe({
+            next: (res) => {
+                if (res?.success) {
+                    this.toast.success('Folder created successfully');
+                    this.fileService.fileUploaded$.next();
+                } else {
+                    this.toast.error(res?.message || 'Failed to create folder');
+                }
+            },
+            error: (err) => {
+                this.toast.error('Failed to create folder');
+            }
+        });
+    }
+
+    private uploadFile(file: File, parentId: string | null) {
+        this.toast.warning('Uploading ' + file.name + '...');
+        this.fileService.getUploadUrl(file.name, file.type, file.size).subscribe({
+            next: (res) => {
+                if (!res?.success) {
+                    this.toast.error(res?.message || 'Failed to get upload URL');
+                    return;
+                }
+                this.fileService.uploadToS3(res.uploadUrl, file).subscribe({
+                    next: (event) => {
+                        if (event.type === HttpEventType.Response) {
+                            this.fileService.saveFileMetadata(file.name, res.s3Key, file.size, file.type, parentId!).subscribe({
+                                next: (saveRes) => {
+                                    if (saveRes?.success) {
+                                        this.toast.success(file.name + ' uploaded successfully!');
+                                        this.fileService.fileUploaded$.next();
+                                    } else {
+                                        this.toast.error(saveRes?.message || 'Failed to save file');
+                                    }
+                                },
+                                error: (err) => {
+                                    this.toast.error('Failed to save file');
+                                }
+                            });
+                        }
+                    },
+                    error: (err) => {
+                        this.toast.error('Failed to upload file to S3');
+                    }
+                });
+            },
+            error: (err) => {
+                this.toast.error('Failed to get upload URL');
+            }
+        });
+    }
+
+    private uploadFolder(files: File[], parentId: string | null) {
+        for (const file of files) {
+            this.uploadFile(file, parentId);
         }
     }
 
