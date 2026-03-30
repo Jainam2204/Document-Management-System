@@ -39,40 +39,60 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const role = email === admin.email ? "admin" : "user";
+        // const role = email === admin.email ? "admin" : "user";
 
-        if (role === "admin") {
+        // if (role === "admin") {
 
-            if (password !== admin.password) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Invalid credentials"
-                });
-            }
+        //     if (password !== admin.password) {
+        //         return res.status(404).json({
+        //             success: false,
+        //             message: "Invalid credentials"
+        //         });
+        //     }
 
-        } else {
+        // } else {
 
-            const existingUser = await User.findOne({ email });
+        //     const existingUser = await User.findOne({ email });
 
-            if (!existingUser) {
-                return res.status(404).json({
-                    success: false,
-                    message: "User not found"
-                });
-            }
+        //     if (!existingUser) {
+        //         return res.status(404).json({
+        //             success: false,
+        //             message: "User not found"
+        //         });
+        //     }
 
-            const doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
+        //     const doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
 
-            if (!doesPasswordMatch) {
-                return res.status(404).json({
-                    success: false,
-                    message: "Invalid credentials"
-                });
-            }
+        //     if (!doesPasswordMatch) {
+        //         return res.status(404).json({
+        //             success: false,
+        //             message: "Invalid credentials"
+        //         });
+        //     }
+        // }
+
+        const existingUser = await User.findOne({ email });
+
+        if (!existingUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
         }
 
-        const accessToken = generateAccessToken({ email, role });
-        const refreshToken = generateRefreshToken({ email, role });
+        const doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
+
+        if (!doesPasswordMatch) {
+            return res.status(404).json({
+                success: false,
+                message: "Invalid credentials"
+            });
+        }
+
+        const isAdmin = existingUser.isAdmin;
+
+        const accessToken = generateAccessToken({ email, isAdmin });
+        const refreshToken = generateRefreshToken({ email, isAdmin });
 
         res.cookie("accessToken", accessToken, {
             httpOnly: false,
@@ -136,21 +156,21 @@ export const verify = async (req, res) => {
 
         const existingUser = await User.findOne({ email })
 
-        if(!existingUser){
+        if (!existingUser) {
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
 
-        if(existingUser.verificationCode !== verificationCode){
+        if (existingUser.verificationCode !== verificationCode) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalis verification code'
             });
         }
 
-        await User.updateOne({email}, {
+        await User.updateOne({ email }, {
             isVerified: true,
             verificationCode: null
         });
@@ -198,7 +218,7 @@ export const generateExpiredAccessToken = (req, res) => {
             return res.status(200).json({
                 success: true,
                 message: "Token exists",
-                token: req.header["x-access-token"]
+                token: req.headers["x-access-token"]
             });
         }
 
@@ -222,13 +242,13 @@ export const generateExpiredAccessToken = (req, res) => {
 
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-        const accessToken = generateAccessToken({ email: decoded.email, role: decoded.role });
+        const accessToken = generateAccessToken({ email: decoded.email, isAdmin: decoded.isAdmin });
 
         res.cookie("accessToken", accessToken, {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            maxAge: (15 * 60 * 1000),
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
             path: '/'
         });
 

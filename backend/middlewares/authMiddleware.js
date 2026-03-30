@@ -20,7 +20,7 @@ const authMiddleware = async (req, res, next) => {
         );
 
         if (!user) {
-            return res.status(401).json({
+            return res.status(400).json({
                 success: false,
                 message: 'User not found',
             });
@@ -30,7 +30,7 @@ const authMiddleware = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('Error in authMiddleware: ' + error);
-        res.status(401).json({
+        res.status(400).json({
             success: false,
             message: 'Invalid token',
         });
