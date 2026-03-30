@@ -19,7 +19,7 @@
   flex: 1;
   overflow-y: auto;
   background: var(--color-bg-page);
-  padding: var(--space-lg);
+  /* padding: var(--space-lg); */
   transition: margin-left var(--transition-base);
 }
 
