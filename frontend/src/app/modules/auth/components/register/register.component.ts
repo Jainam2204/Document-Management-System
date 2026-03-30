@@ -12,7 +12,7 @@ import { ToastService } from '../../../../services/toast/toast.service';
     selector: 'app-register',
     imports: [FormsModule, CommonModule, RouterModule],
     templateUrl: './register.component.html',
-    styleUrl: './register.component.css'
+    styleUrls: ['./register.component.css']
 })
 export class RegisterComponent {
 
@@ -37,3 +37,5 @@ export class RegisterComponent {
         });
     }
 }
+
+

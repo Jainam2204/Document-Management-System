@@ -14,7 +14,7 @@ import { concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finali
     selector: 'app-sidebar',
     imports: [CommonModule, FileActionDropdownComponent],
     templateUrl: './sidebar.component.html',
-    styleUrl: './sidebar.component.css'
+    styleUrls: ['./sidebar.component.css']
 })
 export class SidebarComponent {
     @Input() collapsed = false;
@@ -551,3 +551,5 @@ export class SidebarComponent {
         this.isMobile = window.innerWidth <= 768;
     }
 }
+
+

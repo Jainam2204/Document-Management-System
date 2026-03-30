@@ -69,7 +69,24 @@
 
 .drive__filters {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-input {
+  min-width: 170px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d7dce0;
+  background: #fff;
+  font-size: 13px;
 }
 
 .chip {
@@ -78,6 +95,12 @@
   border: 1px solid #ddd;
   background: #fff;
   cursor: pointer;
+}
+
+.chip--clear {
+  align-self: center;
+  border-color: transparent;
+  background: #f1f3f5;
 }
 
 .drive__section {

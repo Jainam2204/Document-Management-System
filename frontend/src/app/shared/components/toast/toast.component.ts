@@ -7,7 +7,7 @@ import { Toast, ToastService } from '../../../services/toast/toast.service';
   selector: 'app-toast',
   imports: [CommonModule],
   templateUrl: './toast.component.html',
-  styleUrl: './toast.component.css'
+  styleUrls: ['./toast.component.css']
 })
 export class ToastComponent implements OnInit, OnDestroy {
   toasts: Toast[] = [];
@@ -56,3 +56,5 @@ export class ToastComponent implements OnInit, OnDestroy {
     this.timers.forEach(t => clearTimeout(t));
   }
 }
+
+

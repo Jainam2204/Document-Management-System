@@ -28,7 +28,7 @@ export type FileActionEvent =
   selector: 'app-file-action-dropdown',
   imports: [CommonModule, FormsModule],
   templateUrl: './file-action-dropdown.component.html',
-  styleUrl: './file-action-dropdown.component.css',
+  styleUrls: ['./file-action-dropdown.component.css'],
   host: { class: 'file-action-host' },
 })
 export class FileActionDropdownComponent implements OnChanges {
@@ -214,3 +214,5 @@ export class FileActionDropdownComponent implements OnChanges {
     this.newFolderName = '';
   }
 }
+
+

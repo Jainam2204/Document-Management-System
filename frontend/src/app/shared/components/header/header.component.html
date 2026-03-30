@@ -14,11 +14,13 @@
     <div class="search-box" id="header-search">
       <img src="/icons/search.svg" alt="search" class="icon" />
       <input
+        #headerSearchInput
         type="text"
         class="search-input"
         id="header-search-input"
         placeholder="Search files..."
         aria-label="Search files"
+        (input)="onSearchInput($any($event.target).value || '')"
       />
       <button class="icon-btn search-close" *ngIf="searchOpen" (click)="searchOpen = false" aria-label="Close search">
         <img src="/icons/close.svg" alt="close" class="icon icon--sm" />
