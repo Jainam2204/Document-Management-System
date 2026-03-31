@@ -45,6 +45,16 @@ const userSchema = new mongoose.Schema(
             default: Date.now
         },
 
+        passwordLastUpdatedAt: {
+            type: Date,
+            default: Date.now
+        },
+
+        passwordExpiryDuration: {
+            type: Number,
+            default: 90
+        },
+
         passwordExpiresAt: {
             type: Date
         },

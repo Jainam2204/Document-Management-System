@@ -2,18 +2,23 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
-import { Subscription } from 'rxjs';
+import { Subscription, take } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FileService, FileRecord, FolderRecord } from '../../../../services/file/file.service';
+import { SearchFilterService } from '../../../../services/search-filter/search-filter.service';
 import { ToastService } from '../../../../services/toast/toast.service';
 import { RouteHelperService } from '../../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
 
+/**
+ * Home view component for managing user files and folders.
+ * Handles navigation, filtering, uploads, and action dialogs.
+ */
 @Component({
   selector: 'app-home',
   imports: [CommonModule, FormsModule, FileActionDropdownComponent],
   templateUrl: './home.component.html',
-  styleUrl: './home.component.css'
+  styleUrls: ['./home.component.css']
 })
 export class HomeComponent implements OnInit, OnDestroy {
   folders: FolderRecord[] = [];
@@ -32,39 +37,69 @@ export class HomeComponent implements OnInit, OnDestroy {
   shareExpiryTime = '';
   shareUrl = '';
 
+  allFolders: FolderRecord[] = [];
+  allFiles: FileRecord[] = [];
+  searchTerm = '';
+  filterType = '';
+  filterDateFrom = '';
+  filterDateTo = '';
+  sizeFilter: 'all' | 'small' | 'medium' | 'large' = 'all';
+
+  private searchSubscription?: Subscription;
   private uploadSub!: Subscription;
   private routeSub!: Subscription;
 
   constructor(
     private fileService: FileService,
+    private searchFilterService: SearchFilterService,
     private toast: ToastService,
     private route: ActivatedRoute,
     private router: Router,
     private routeHelper: RouteHelperService
   ) {}
 
+  /**
+   * Initialize component state and subscribe to route and search changes.
+   */
   ngOnInit() {
-    this.routeSub = this.route.params.subscribe(params => {
+    this.routeSub = this.route.params.subscribe((params) => {
       this.currentFolderId = params['id'] || null;
       this.loadData();
     });
+
     this.uploadSub = this.fileService.fileUploaded$.subscribe(() => {
       this.loadData();
     });
+
+    this.searchTerm = this.searchFilterService.currentCriteria.searchTerm;
+    this.applyFilters();
+
+    this.searchSubscription = this.searchFilterService.searchTermChanges$.subscribe((searchTerm) => {
+      this.searchTerm = searchTerm;
+      this.applyFilters();
+    });
   }
 
+  /**
+   * Tear down active subscriptions when the component is destroyed.
+   */
   ngOnDestroy() {
     this.uploadSub?.unsubscribe();
     this.routeSub?.unsubscribe();
+    this.searchSubscription?.unsubscribe();
   }
 
+  /**
+   * Load the appropriate file and folder data for the current route.
+   */
   loadData() {
     this.loading = true;
     if (this.currentFolderId) {
       this.loadFolderContents();
-    } else {
-      this.loadRootContents();
+      return;
     }
+
+    this.loadRootContents();
   }
 
   loadRootContents() {
@@ -73,15 +108,25 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.loadFiles();
   }
 
+  /**
+   * Load the currently selected folder's files and subfolders.
+   */
   loadFolderContents() {
-    if (!this.currentFolderId) return;
+    if (!this.currentFolderId) {
+      return;
+    }
+
     this.fileService.getFolderContents(this.currentFolderId).subscribe({
       next: (res) => {
-        if (res.success) {
-          this.currentFolder = res.folder;
-          this.files = res.files;
-          this.folders = res.subfolders;
+        if (!res.success) {
+          this.loading = false;
+          return;
         }
+
+        this.currentFolder = res.folder;
+        this.allFolders = res.subfolders;
+        this.allFiles = res.files;
+        this.applyFilters();
         this.loading = false;
       },
       error: (err) => {
@@ -92,12 +137,17 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Load root-level folders for the current user.
+   */
   loadFolders() {
     this.fileService.getUserFolders().subscribe({
       next: (res) => {
-        if (res.success) {
-          this.folders = res.folders;
+        if (!res.success) {
+          return;
         }
+        this.allFolders = res.folders;
+        this.applyFilters();
       },
       error: (err) => {
         console.error('Error loading folders:', err);
@@ -105,12 +155,18 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Load root-level files for the current user.
+   */
   loadFiles() {
     this.fileService.getUserFiles().subscribe({
       next: (res) => {
-        if (res.success) {
-          this.files = res.files;
+        if (!res.success) {
+          this.loading = false;
+          return;
         }
+        this.allFiles = res.files;
+        this.applyFilters();
         this.loading = false;
       },
       error: (err) => {
@@ -121,17 +177,164 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  onFolderClick(folder: FolderRecord) {
+  /**
+   * Navigate into a selected folder.
+   * @param folder - Folder selected by the user.
+   */
+  onFolderClick(folder: FolderRecord): void {
     this.router.navigate(['/home', folder._id]);
   }
 
-  goBack() {
+  /**
+   * Navigate up one level in the folder hierarchy.
+   */
+  goBack(): void {
     if (this.currentFolder?.parentFolder) {
       this.router.navigate(['/home', this.currentFolder.parentFolder]);
-    } else {
-      this.router.navigate(['/home']);
+      return;
     }
+    this.router.navigate(['/home']);
   }
+
+  onFilterChange(): void {
+    this.applyFilters();
+  }
+
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.filterType = '';
+    this.filterDateFrom = '';
+    this.filterDateTo = '';
+    this.sizeFilter = 'all';
+    this.searchFilterService.resetFilters();
+    this.applyFilters();
+  }
+
+  hasFilters(): boolean {
+    return (
+      !!this.searchTerm ||
+      !!this.filterType ||
+      !!this.filterDateFrom ||
+      !!this.filterDateTo ||
+      this.sizeFilter !== 'all'
+    );
+  }
+
+  /**
+   * Apply the current search and filter criteria to loaded items.
+   */
+  private applyFilters(): void {
+    const searchTerm = this.searchTerm.trim().toLowerCase();
+    const typeTerm = this.filterType.trim().toLowerCase();
+    const dateRange = this.createDateRange(this.filterDateFrom, this.filterDateTo);
+
+    this.folders = this.allFolders.filter((folder) => {
+      return this.folderMatchesSearch(folder, searchTerm, dateRange);
+    });
+
+    this.files = this.allFiles.filter((file) => {
+      return this.fileMatchesSearch(file, searchTerm, typeTerm, dateRange, this.sizeFilter);
+    });
+  }
+
+  /**
+   * Convert date filter strings into a comparable date range.
+   * @param from - Start date string.
+   * @param to - End date string.
+   * @returns Object with parsed from/to dates or null values.
+   */
+  private createDateRange(from: string, to: string): { from: Date | null; to: Date | null } {
+    const range = { from: null as Date | null, to: null as Date | null };
+
+    if (from) {
+      range.from = new Date(from);
+    }
+
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      range.to = toDate;
+    }
+
+    return range;
+  }
+
+  /**
+   * Determine whether a folder matches the current search criteria.
+   * @param folder - Folder to evaluate.
+   * @param searchTerm - Search term to match against folder name.
+   * @param dateRange - Optional date range for folder creation.
+   */
+  private folderMatchesSearch(folder: FolderRecord, searchTerm: string, dateRange: { from: Date | null; to: Date | null }): boolean {
+    const hasSearchMatch = !searchTerm || folder.name.toLowerCase().includes(searchTerm);
+    const hasDateMatch = this.itemMatchesDate(folder.createdAt, dateRange);
+    return hasSearchMatch && hasDateMatch;
+  }
+
+  /**
+   * Determine whether a file matches search, type, date, and size filters.
+   * @param file - File item to evaluate.
+   * @param searchTerm - Search term used for name/type matching.
+   * @param typeTerm - File type filter string.
+   * @param dateRange - Date range used for creation filtering.
+   * @param sizeFilter - Size category filter.
+   */
+  private fileMatchesSearch(file: FileRecord, searchTerm: string, typeTerm: string, dateRange: { from: Date | null; to: Date | null }, sizeFilter: 'all' | 'small' | 'medium' | 'large'): boolean {
+    const extension = this.getFileExtension(file.name);
+    const nameMatches = !searchTerm || file.name.toLowerCase().includes(searchTerm);
+    const typeMatches = !searchTerm || file.type.toLowerCase().includes(searchTerm) || extension.includes(searchTerm);
+    const searchMatches = nameMatches || typeMatches;
+
+    const typeFilterMatches = !typeTerm || file.type.toLowerCase().includes(typeTerm) || extension.includes(typeTerm);
+    const dateMatches = this.itemMatchesDate(file.createdAt, dateRange);
+    const sizeMatches = this.itemMatchesSize(file.size, sizeFilter);
+
+    return searchMatches && typeFilterMatches && dateMatches && sizeMatches;
+  }
+
+  /**
+   * Check whether a date falls inside the current filter range.
+   * @param itemDate - ISO date string of the item.
+   * @param dateRange - Range to compare against.
+   */
+  private itemMatchesDate(itemDate: string, dateRange: { from: Date | null; to: Date | null }): boolean {
+    const date = new Date(itemDate);
+    if (dateRange.from && date < dateRange.from) {
+      return false;
+    }
+    if (dateRange.to && date > dateRange.to) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Check whether a file size passes the selected size filter.
+   * @param size - File size in bytes.
+   * @param filter - Selected size bucket.
+   */
+  private itemMatchesSize(size: number, filter: 'all' | 'small' | 'medium' | 'large'): boolean {
+    if (filter === 'all') {
+      return true;
+    }
+    if (filter === 'small') {
+      return size < 1024 * 1024;
+    }
+    if (filter === 'medium') {
+      return size >= 1024 * 1024 && size <= 10 * 1024 * 1024;
+    }
+    return size > 10 * 1024 * 1024;
+  }
+
+  private getFileExtension(name: string): string {
+    const parts = name.toLowerCase().split('.');
+    return parts.length > 1 ? parts[parts.length - 1] : '';
+  }
+
+  hasAnyResults(): boolean {
+    return this.folders.length > 0 || this.files.length > 0;
+  }
+
   onItemMenuKeyChange(key: string | null): void {
     this.openItemMenuKey = key;
   }
@@ -378,3 +581,5 @@ export class HomeComponent implements OnInit, OnDestroy {
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   }
 }
+
+

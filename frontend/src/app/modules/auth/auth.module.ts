@@ -6,11 +6,12 @@ import { FormsModule } from '@angular/forms';
 import { LoginComponent } from './components/login/login.component';
 import { RegisterComponent } from './components/register/register.component';
 import { VerifyComponent } from './components/verify/verify.component';
+import { ResetPasswordComponent } from './components/reset-password/reset-password.component';
 import { RouterModule } from '@angular/router';
 
 
 @NgModule({
-  declarations: [FormsModule, LoginComponent, RegisterComponent, VerifyComponent, RouterModule],
+  declarations: [FormsModule, LoginComponent, RegisterComponent, VerifyComponent, ResetPasswordComponent, RouterModule],
   imports: [
     CommonModule,
     AuthRoutingModule

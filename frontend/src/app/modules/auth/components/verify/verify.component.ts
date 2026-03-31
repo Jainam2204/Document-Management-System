@@ -12,7 +12,7 @@ import { ToastService } from '../../../../services/toast/toast.service';
     selector: 'app-verify',
     imports: [FormsModule, CommonModule],
     templateUrl: './verify.component.html',
-    styleUrl: './verify.component.css'
+    styleUrls: ['./verify.component.css']
 })
 export class VerifyComponent {
 
@@ -43,3 +43,5 @@ export class VerifyComponent {
         });
     }
 }
+
+

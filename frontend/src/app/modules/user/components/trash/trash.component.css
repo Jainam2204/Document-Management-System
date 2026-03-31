@@ -1,0 +1,147 @@
+.drive {
+  padding: 20px;
+}
+
+.drive__header {
+  margin-bottom: 24px;
+}
+
+.drive__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drive__folder-title {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.drive__section {
+  margin-bottom: 24px;
+}
+
+.drive__section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.drive__grid {
+  display: grid;
+  gap: 12px;
+}
+
+.drive__grid--folders,
+.drive__grid--files {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.folder-card,
+.file-card {
+  padding: 16px;
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.folder-card__left,
+.file-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.folder-card__emoji {
+  font-size: 28px;
+}
+
+.folder-card__name-text,
+.file-card__name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.folder-card__meta,
+.file-card__meta {
+  color: #666;
+  font-size: 13px;
+}
+
+.file-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-card__actions,
+.folder-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 1px solid transparent;
+  background: #f0f0f0;
+  color: #111;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #ffffff;
+  border-color: #d1d1d1;
+}
+
+button.danger {
+  background: #ff4d4f;
+  color: #ffffff;
+  border-color: #ff4d4f;
+}
+
+.drive__empty {
+  padding: 32px;
+  border: 1px dashed #dcdcdc;
+  border-radius: 12px;
+  background: #fafafa;
+  text-align: center;
+  color: #666;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  width: min(480px, 90vw);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+.dialog-title {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+
+.dialog-error {
+  margin-top: 12px;
+  color: #d93025;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}

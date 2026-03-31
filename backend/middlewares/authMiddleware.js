@@ -2,6 +2,13 @@ import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+/**
+ * Authenticate requests using an access token from headers or cookies.
+ * @param req - Express request object.
+ * @param res - Express response object used for failure responses.
+ * @param next - Next middleware callback when authentication succeeds.
+ * @returns Calls next() for valid tokens, or sends a 401/400 response.
+ */
 const authMiddleware = async (req, res, next) => {
     try {
         const token = req.headers['x-access-token'] || req.cookies?.accessToken;

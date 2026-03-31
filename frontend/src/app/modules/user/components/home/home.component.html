@@ -16,8 +16,59 @@
         </div>
 
         <div class="drive__filters">
-            <button type="button" class="chip">Date</button>
-            <button type="button" class="chip">Size</button>
+            <div class="filter-group">
+                <label for="type-filter">Type</label>
+                <input
+                    id="type-filter"
+                    type="text"
+                    class="filter-input"
+                    placeholder="e.g. pdf, txt, jpg"
+                    [(ngModel)]="filterType"
+                    (ngModelChange)="onFilterChange()"
+                />
+            </div>
+            <div class="filter-group">
+                <label for="date-from">Created from</label>
+                <input
+                    id="date-from"
+                    type="date"
+                    class="filter-input"
+                    [(ngModel)]="filterDateFrom"
+                    (ngModelChange)="onFilterChange()"
+                />
+            </div>
+            <div class="filter-group">
+                <label for="date-to">Created to</label>
+                <input
+                    id="date-to"
+                    type="date"
+                    class="filter-input"
+                    [(ngModel)]="filterDateTo"
+                    (ngModelChange)="onFilterChange()"
+                />
+            </div>
+            <div class="filter-group">
+                <label for="size-filter">Size</label>
+                <select
+                    id="size-filter"
+                    class="filter-input"
+                    [(ngModel)]="sizeFilter"
+                    (ngModelChange)="onFilterChange()"
+                >
+                    <option value="all">All sizes</option>
+                    <option value="small">Small (&lt; 1 MB)</option>
+                    <option value="medium">Medium (1 - 10 MB)</option>
+                    <option value="large">Large (&gt; 10 MB)</option>
+                </select>
+            </div>
+            <button
+                *ngIf="hasFilters()"
+                type="button"
+                class="chip chip--clear"
+                (click)="clearFilters()"
+            >
+                Clear filters
+            </button>
         </div>
     </div>
 
@@ -143,8 +194,13 @@
     </div>
 
 
-    <div class="drive__empty" *ngIf="!loading && files.length === 0 && folders.length === 0">
-        <p>No files or folders yet. Use <strong>New</strong> in the sidebar to add files or folders.</p>
+    <div class="drive__empty" *ngIf="!loading && !hasAnyResults()">
+        <p *ngIf="hasFilters() || searchTerm">
+            No matching files or folders found. Try changing the search or filter criteria.
+        </p>
+        <p *ngIf="!hasFilters() && !searchTerm">
+            No files or folders yet. Use <strong>New</strong> in the sidebar to add files or folders.
+        </p>
     </div>
 
 </div>
