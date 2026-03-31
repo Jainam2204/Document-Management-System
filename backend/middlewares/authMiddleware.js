@@ -37,7 +37,13 @@ const authMiddleware = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('Error in authMiddleware: ' + error);
-        res.status(400).json({
+        // res.clearCookie("accessToken", {
+        //     httpOnly: false,
+        //     sameSite: "Lax",
+        //     secure: false,
+        //     path: '/'
+        // });
+        res.status(401).json({
             success: false,
             message: 'Invalid token',
         });

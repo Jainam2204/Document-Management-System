@@ -9,10 +9,12 @@ import { RouteHelperService } from '../../../services/route-helper/route-helper.
 import { FileActionDropdownComponent } from '../../../modules/user/components/file-action-dropdown/file-action-dropdown.component';
 import { BackendResponse } from '../../models/BackendResponse';
 import { concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finalize } from 'rxjs';
+import { SizePipe } from '../../pipes/size/size.pipe';
+import { UserService } from '../../../services/user/user.service';
 
 @Component({
     selector: 'app-sidebar',
-    imports: [CommonModule, FileActionDropdownComponent],
+    imports: [CommonModule, FileActionDropdownComponent, SizePipe],
     templateUrl: './sidebar.component.html',
     styleUrls: ['./sidebar.component.css']
 })
@@ -23,7 +25,8 @@ export class SidebarComponent {
     @ViewChild('folderInput') folderInput!: ElementRef;
 
     activeItem = 'files';
-    storageUsed = 75;
+    storageUsed = 0;
+    storageTotal = 0;
     isMobile = false;
     showNewMenu = false;
     uploading = false;
@@ -31,6 +34,7 @@ export class SidebarComponent {
 
     constructor(
         private fileService: FileService,
+        private userService: UserService,
         private toast: ToastService,
         private router: Router,
         private authService: AuthService,
@@ -40,12 +44,26 @@ export class SidebarComponent {
         this.checkMobile();
     }
 
+    ngOnInit() {
+        this.getStorage();
+    }
+
     ngAfterViewInit() {
         this.folderInput.nativeElement.setAttribute('webkitdirectory', '');
     }
 
     toggleNewMenu() {
         this.showNewMenu = !this.showNewMenu;
+    }
+
+    getStorage() {
+        this.userService.getStorageInfo().subscribe((res: any) => {
+            if (res.success) {
+                this.storageUsed = res.storageUsed;
+                this.storageTotal = res.storageLimit;
+                console.log(res);
+            }
+        });
     }
 
     getFolderId() {
@@ -284,64 +302,64 @@ export class SidebarComponent {
     //   }
     // }
 
-    onFileSelected(event: any){
-    const file: File = event.target.files[0];
-    if (!file) return;
+    onFileSelected(event: any) {
+        const file: File = event.target.files[0];
+        if (!file) return;
 
-    const folderId = this.getFolderId();
+        const folderId = this.getFolderId();
 
-    console.log('folderId : ', folderId);
+        console.log('folderId : ', folderId);
 
-    event.target.value = '';
+        event.target.value = '';
 
-    this.uploading = true;
-    this.toast.warning('Uploading ' + file.name + '...');
+        this.uploading = true;
+        this.toast.warning('Uploading ' + file.name + '...');
 
-    this.fileService.getUploadUrl(file.name, file.type, file.size).pipe(
+        this.fileService.getUploadUrl(file.name, file.type, file.size).pipe(
 
-        switchMap((urlRes: any) => {
-            if (!urlRes || !urlRes.success) {
-                throw new Error(urlRes?.message || 'Failed to get upload URL');
-            }
+            switchMap((urlRes: any) => {
+                if (!urlRes || !urlRes.success) {
+                    throw new Error(urlRes?.message || 'Failed to get upload URL');
+                }
 
-            return this.fileService.uploadToS3(urlRes.uploadUrl, file).pipe(
-                filter(event => event.type === HttpEventType.Response),
-                map(() => urlRes)
-            );
-        }),
+                return this.fileService.uploadToS3(urlRes.uploadUrl, file).pipe(
+                    filter(event => event.type === HttpEventType.Response),
+                    map(() => urlRes)
+                );
+            }),
 
-        switchMap((urlRes: any) => {
-            
-            return this.fileService.saveFileMetadata(
-                file.name,
-                urlRes.s3Key,
-                file.size,
-                file.type,
-                folderId
-            );
-        }),
+            switchMap((urlRes: any) => {
 
-        tap((saveRes: any) => {
-            if (!saveRes || !saveRes.success) {
-                throw new Error(saveRes?.message || 'Failed to save file');
-            }
+                return this.fileService.saveFileMetadata(
+                    file.name,
+                    urlRes.s3Key,
+                    file.size,
+                    file.type,
+                    folderId
+                );
+            }),
 
-            this.toast.success(file.name + ' uploaded successfully!');
-            this.fileService.fileUploaded$.next();
-        }),
+            tap((saveRes: any) => {
+                if (!saveRes || !saveRes.success) {
+                    throw new Error(saveRes?.message || 'Failed to save file');
+                }
 
-        catchError((err) => {
-            console.error('Upload error:', err);
-            this.toast.error('Upload failed: ' + (err.message || 'Unknown error'));
-            return EMPTY;
-        }),
+                this.toast.success(file.name + ' uploaded successfully!');
+                this.fileService.fileUploaded$.next();
+            }),
 
-        finalize(() => {
-            this.uploading = false;
-        })
+            catchError((err) => {
+                console.error('Upload error:', err);
+                this.toast.error('Upload failed: ' + (err.message || 'Unknown error'));
+                return EMPTY;
+            }),
 
-    ).subscribe();
-}
+            finalize(() => {
+                this.uploading = false;
+            })
+
+        ).subscribe();
+    }
 
     onFolderSelected(event: any): void {
         const fileList: FileList = event.target.files;
@@ -448,9 +466,12 @@ export class SidebarComponent {
         if (item === 'files') {
             this.router.navigate(['/home']);
         }
+        if (item === 'trash') {
+            this.router.navigate(['/trash']);
+        }
     }
 
-    onAction(event: {type: string, data?: any}) {
+    onAction(event: { type: string, data?: any }) {
         const parentId = this.routeHelper.getParentFolderIdFromUrl();
         switch (event.type) {
             case 'createFolder':
@@ -524,11 +545,11 @@ export class SidebarComponent {
         }
     }
 
-     onLogout() {
+    onLogout() {
         this.authService.logout().subscribe({
             next: (res: BackendResponse) => {
                 this.toast.success(res.message);;
-				this.router.navigate(['/auth/login']);
+                this.router.navigate(['/auth/login']);
             },
 
             error: (err: HttpErrorResponse) => {

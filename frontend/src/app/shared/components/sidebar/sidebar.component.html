@@ -8,7 +8,7 @@
     <ul class="sidebar-list">
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'files'" (click)="setActive('files')"
         id="sidebar-my-files">
-        <a class="sidebar-link" title="My Files" routerLink="/home">
+        <a class="sidebar-link" title="My Files">
           <img src="/icons/folder.svg" alt="files" class="icon" />
           <span class="sidebar-label">My Files</span>
         </a>
@@ -16,21 +16,39 @@
 
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'trash'" (click)="setActive('trash')"
         id="sidebar-trash">
-        <a class="sidebar-link" title="Trash" routerLink="/trash">
+        <a class="sidebar-link" title="Trash">
           <img src="/icons/trash.svg" alt="trash" class="icon" />
           <span class="sidebar-label">Trash</span>
         </a>
       </li>
+
+      <!-- <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'trash'" (click)="setActive('trash')"
+        id="sidebar-trash">
+        <a class="sidebar-link" title="Trash" routerLink="/trash">
+          <img src="/icons/trash.svg" alt="trash" class="icon" />
+          <span class="sidebar-label">Trash</span>
+        </a>
+      </li> -->
 
       <li class="sidebar-item sidebar-item--storage" id="sidebar-storage">
         <div class="sidebar-link sidebar-link--static" title="Used Storage">
           <img src="/icons/cloud.svg" alt="storage" class="icon" />
           <div class="storage-info">
             <span class="sidebar-label">Used Storage</span>
+            <span class="storage-text">
+              {{ storageUsed | size }} of {{ storageTotal | size }} used
+            </span>
+
+            <!-- Progress Bar -->
+            <div class="progress-track">
+              <div class="progress-fill" [style.width.%]="(storageUsed / storageTotal) * 100">
+              </div>
+            </div>
+            <!--             
             <span class="storage-percent">{{ storageUsed }}% used</span>
             <div class="progress-track">
               <div class="progress-fill" [style.width.%]="storageUsed"></div>
-            </div>
+            </div> -->
           </div>
         </div>
       </li>

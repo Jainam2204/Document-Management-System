@@ -9,6 +9,7 @@ import { SearchFilterService } from '../../../../services/search-filter/search-f
 import { ToastService } from '../../../../services/toast/toast.service';
 import { RouteHelperService } from '../../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
+import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
 
 /**
  * Home view component for managing user files and folders.
@@ -16,7 +17,7 @@ import { FileActionDropdownComponent } from '../file-action-dropdown/file-action
  */
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, FormsModule, FileActionDropdownComponent],
+  imports: [CommonModule, FormsModule, FileActionDropdownComponent, SizePipe],
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })

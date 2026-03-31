@@ -39,9 +39,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 ).pipe(
                     switchMap((res: any) => {
 
-                        let newToken = res.accessToken || cookieService.getCookie('accessToken');
+                        let newToken: string | null = '';
 
-                        console.log('newToken: ', newToken);
+                        if(res.success){
+                            newToken = res.accessToken || cookieService.getCookie('accessToken');
+                        }
 
                         if (!newToken) {
                             return throwError(() => new Error('Token not found'));
@@ -52,10 +54,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                             setHeaders: {
                                 'x-access-token': newToken
                             }
-                        });
-
-                        console.log('retryReq: ', retryReq);                        
-
+                        });                 
 
                         return next(retryReq);
                     }),
