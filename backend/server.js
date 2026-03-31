@@ -9,6 +9,7 @@ import cors from 'cors';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoute.js';
 import fileRoutes from './routes/fileRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 app.use(cors({
    origin: [process.env.CLIENT_URL1, process.env.CLIENT_URL2],
@@ -23,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/files", fileRoutes);
+app.use("/api/users", userRoutes);
 
 connectDB();
 

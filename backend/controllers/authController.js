@@ -87,38 +87,6 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // const role = email === admin.email ? "admin" : "user";
-
-        // if (role === "admin") {
-
-        //     if (password !== admin.password) {
-        //         return res.status(404).json({
-        //             success: false,
-        //             message: "Invalid credentials"
-        //         });
-        //     }
-
-        // } else {
-
-        //     const existingUser = await User.findOne({ email });
-
-        //     if (!existingUser) {
-        //         return res.status(404).json({
-        //             success: false,
-        //             message: "User not found"
-        //         });
-        //     }
-
-        //     const doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
-
-        //     if (!doesPasswordMatch) {
-        //         return res.status(404).json({
-        //             success: false,
-        //             message: "Invalid credentials"
-        //         });
-        //     }
-        // }
-
         const existingUser = await User.findOne({ email });
 
         if (!existingUser) {
@@ -128,7 +96,14 @@ export const login = async (req, res) => {
             });
         }
 
-        const doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
+        let doesPasswordMatch;
+
+        if(email === admin.email){
+            doesPasswordMatch = password === admin.password ? true : false;
+        } else {
+            doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
+        }
+
 
         if (!doesPasswordMatch) {
             return res.status(404).json({
@@ -156,7 +131,7 @@ export const login = async (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+            maxAge: (15 * 60 * 1000),
             path: '/'
         });
 
@@ -164,7 +139,7 @@ export const login = async (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+            maxAge: (1 * 24 * 60 * 60 * 1000),
             path: '/'
         });
 
@@ -409,7 +384,7 @@ export const verify = async (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+            maxAge: (15 * 60 * 1000),
             path: '/'
         });
 
@@ -417,7 +392,7 @@ export const verify = async (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+            maxAge: (1 * 24 * 60 * 60 * 1000),
             path: '/'
         });
 
@@ -437,7 +412,7 @@ export const verify = async (req, res) => {
 }
 
 /**
- * Refresh or report the currently available access token.
+ * Generate access token based on refresh token payload
  * @param req - Express request object containing access or refresh token.
  * @param res - Express response object returning a renewed access token or error.
  * @returns HTTP 200 with access token or HTTP 401/404 on failure.
@@ -445,24 +420,7 @@ export const verify = async (req, res) => {
 export const generateExpiredAccessToken = (req, res) => {
     try {
 
-        if (req.headers["x-access-token"]) {
-            return res.status(200).json({
-                success: true,
-                message: "Token exists",
-                token: req.headers["x-access-token"]
-            });
-        }
-
-        if (req.cookies?.accessToken) {
-            return res.status(200).json({
-                success: true,
-                message: "Token exists",
-                token: req.cookies.accessToken
-            });
-        }
-
         const refreshToken = req.cookies?.refreshToken;
-        // const refreshToken = req.headers["x-refresh-token"];
 
         if (!refreshToken) {
             return res.status(401).json({
@@ -479,11 +437,11 @@ export const generateExpiredAccessToken = (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+            maxAge: (1 * 24 * 60 * 60 * 1000),
             path: '/'
         });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Token generated successfully",
             accessToken: accessToken
@@ -491,7 +449,13 @@ export const generateExpiredAccessToken = (req, res) => {
 
     } catch (error) {
         console.error("Error in refresh token : " + error);
-        res.status(404).json({
+        res.clearCookie("refreshToken", {
+            httpOnly: false,
+            sameSite: "Lax",
+            secure: false,
+            path: '/'
+        });
+        res.status(401).json({
             success: false,
             message: "Error occured in refresh"
         });

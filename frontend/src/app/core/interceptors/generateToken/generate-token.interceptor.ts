@@ -17,11 +17,11 @@ export const generateTokenInterceptor: HttpInterceptorFn = (req, next) => {
         catchError((error: HttpErrorResponse) => {
 
             if (error.status === 401 && !req.url.includes('/auth/generate-token')) {
-                return http.post<LoginResponse>(environment.API_URL + '/auth/generate-access-token', null, { withCredentials: true }).pipe(
-                    switchMap((res: LoginResponse) => {
+                return http.post<any>(environment.API_URL + '/auth/generate-access-token', null, { withCredentials: true }).pipe(
+                    switchMap((res: any) => {
                         let newToken: string | null = '';
-                        if (res.success) {
-                            newToken = cookieService.getCookie('accessToken');
+                        if (res.success && res.accessToken) {
+                            newToken = res.accessToken || cookieService.getCookie('accessToken');
                         }
 
                         if (!newToken) {

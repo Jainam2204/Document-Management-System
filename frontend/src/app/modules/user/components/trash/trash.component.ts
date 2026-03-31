@@ -86,7 +86,8 @@ export class TrashComponent implements OnInit {
       next: (res) => {
         if (res.success) {
           this.toast.success(`${this.isFileRecord(record) ? 'File' : 'Folder'} restored successfully.`);
-          this.removeItemFromTrash(record);
+          this.loadTrashItems();
+
         } else {
           this.toast.error(res.message || 'Restore failed.');
         }
@@ -116,7 +117,7 @@ export class TrashComponent implements OnInit {
         this.actionDialogLoading = false;
         if (res.success) {
           this.toast.success(`${this.isFileRecord(record) ? 'File' : 'Folder'} permanently deleted.`);
-          this.removeItemFromTrash(record);
+          this.loadTrashItems();
           this.closeActionDialog();
         } else {
           this.actionDialogError = res.message || 'Permanent delete failed.';
@@ -129,13 +130,13 @@ export class TrashComponent implements OnInit {
     });
   }
 
-  removeItemFromTrash(record: FolderRecord | FileRecord): void {
-    if (this.isFileRecord(record)) {
-      this.files = this.files.filter((item) => item._id !== record._id);
-    } else {
-      this.folders = this.folders.filter((item) => item._id !== record._id);
-    }
-  }
+  // removeItemFromTrash(record: FolderRecord | FileRecord): void {
+  //   if (this.isFileRecord(record)) {
+  //     this.files = this.files.filter((item) => item._id !== record._id);
+  //   } else {
+  //     this.folders = this.folders.filter((item) => item._id !== record._id);
+  //   }
+  // }
 
   formatDate(value?: string): string {
     if (!value) return '-';
