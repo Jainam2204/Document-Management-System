@@ -40,7 +40,7 @@ export class AuthService {
         return this.http.post<LoginResponse>(this.url + '/login', loginDetails, {
             withCredentials: true
         }).pipe(
-            tap((response) => this.updatePasswordExpiryFromResponse(response))
+            tap((response) => this.handlePasswordExpiry(response))
         );
     }
 
@@ -87,7 +87,7 @@ export class AuthService {
         }).pipe(
             tap((response) => {
                 if (response.success) {
-                    this.updatePasswordExpiryFromResponse(response);
+                    this.handlePasswordExpiry(response);
                 }
             }),
             map((response) => response.passwordExpiry),
@@ -108,7 +108,7 @@ export class AuthService {
         }, {
             withCredentials: true
         }).pipe(
-            tap((response) => this.updatePasswordExpiryFromResponse(response))
+            tap((response) => this.handlePasswordExpiry(response))
         );
     }
 
@@ -126,13 +126,21 @@ export class AuthService {
     }
 
     /**
-     * Extract password expiry information from a backend response.
+     * Handle password expiry metadata from a backend response.
      * @param response - Response object that may contain passwordExpiry data.
      */
-    private updatePasswordExpiryFromResponse(response: any): void {
-        if (response && response.passwordExpiry) {
-            this.setPasswordExpiryInfo(response.passwordExpiry);
-        }
+    private handlePasswordExpiry(response: any): void {
+        const expiryInfo = this.parsePasswordExpiry(response);
+        this.setPasswordExpiryInfo(expiryInfo);
+    }
+
+    /**
+     * Parse password expiry metadata from the backend response.
+     * @param response - Response object that may contain passwordExpiry data.
+     * @returns Parsed PasswordExpiryInfo or null.
+     */
+    private parsePasswordExpiry(response: any): PasswordExpiryInfo | null {
+        return response?.passwordExpiry ?? null;
     }
 
     /**

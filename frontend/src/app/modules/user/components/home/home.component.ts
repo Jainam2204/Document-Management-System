@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FileService, FileRecord, FolderRecord } from '../../../../services/file/file.service';
 import { SearchFilterService } from '../../../../services/search-filter/search-filter.service';
 import { ToastService } from '../../../../services/toast/toast.service';
+import { UserService } from '../../../../services/user/user.service';
 import { RouteHelperService } from '../../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
@@ -37,6 +38,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   shareExpiryDate = '';
   shareExpiryTime = '';
   shareUrl = '';
+  folderUploadLoading = false;
+  folderUploadStatus = '';
 
   allFolders: FolderRecord[] = [];
   allFiles: FileRecord[] = [];
@@ -54,6 +57,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     private fileService: FileService,
     private searchFilterService: SearchFilterService,
     private toast: ToastService,
+    private userService: UserService,
     private route: ActivatedRoute,
     private router: Router,
     private routeHelper: RouteHelperService
@@ -440,6 +444,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         if (res.success) {
           this.toast.success(`${isFile ? 'File' : 'Folder'} deleted successfully.`);
           this.removeDeletedRecord(this.actionDialogRecord!);
+          this.userService.refreshStorageInfo();
           this.closeActionDialog();
         } else {
           this.actionDialogError = res.message || 'Delete failed.';
@@ -548,6 +553,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 next: (saveRes) => {
                   if (saveRes?.success) {
                     this.toast.success(file.name + ' uploaded successfully!');
+                    this.userService.refreshStorageInfo();
                     this.loadData();
                   } else {
                     this.toast.error(saveRes?.message || 'Failed to save file');
@@ -571,9 +577,176 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   private uploadFolder(files: File[], parentId: string | null): void {
-    for (const file of files) {
-      this.uploadFile(file, parentId);
+    if (!files || files.length === 0) {
+      this.toast.error('No folder selected.');
+      return;
     }
+
+    const parsed = this.parseFolderFiles(files);
+    if (!parsed) {
+      this.toast.error('Unable to read folder structure from selected files.');
+      return;
+    }
+
+    this.folderUploadLoading = true;
+    this.folderUploadStatus = `Creating folder tree for ${parsed.rootName}...`;
+
+    this.fileService.createFolderTree(parsed.rootName, parsed.subPaths, parentId).subscribe({
+      next: (res) => {
+        if (!res?.success) {
+          this.toast.error(res?.message || 'Failed to create folder tree.');
+          this.folderUploadLoading = false;
+          return;
+        }
+
+        this.folderUploadStatus = 'Uploading files...';
+        this.uploadFilesSequentially(parsed.fileItems, res.pathToIdMap);
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Folder upload failed.');
+        this.folderUploadLoading = false;
+      }
+    });
+  }
+
+  /**
+   * Parse selected folder files and extract folder paths.
+   * Each file will know which nested folder it belongs to under the selected root.
+   */
+  private parseFolderFiles(files: File[]): {
+    rootName: string;
+    fileItems: Array<{ file: File; folderPath: string; relativePath: string }>;
+    subPaths: string[];
+  } | null {
+    const fileItems: Array<{ file: File; folderPath: string; relativePath: string }> = [];
+    const folderSet = new Set<string>();
+
+    const firstPath = (files[0] as any).webkitRelativePath || '';
+    const rootName = firstPath.replace(/\\/g, '/').split('/')[0];
+    if (!rootName) {
+      return null;
+    }
+
+    for (const file of files) {
+      const relativePath = ((file as any).webkitRelativePath || '').replace(/\\/g, '/');
+      const parts = relativePath.split('/');
+      if (parts.length < 2) {
+        continue;
+      }
+
+      // The folder path inside the selected root folder (for DB folderId mapping).
+      const folderPath = parts.length > 2 ? parts.slice(1, -1).join('/') : '';
+
+      // The upload path for S3 includes the selected root folder and nested folders.
+      const relativeDirPath = parts.slice(0, -1).join('/');
+
+      fileItems.push({ file, folderPath, relativePath: relativeDirPath });
+
+      // Add all ancestor folder paths so backend creates nested folders.
+      for (let i = 2; i < parts.length; i++) {
+        const pathPart = parts.slice(1, i).join('/');
+        if (pathPart) {
+          folderSet.add(pathPart);
+        }
+      }
+    }
+
+    return {
+      rootName,
+      fileItems,
+      subPaths: Array.from(folderSet),
+    };
+  }
+
+  /**
+   * Upload files one by one so the progress stays easy to follow.
+   */
+  private uploadFilesSequentially(
+    fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
+    pathToIdMap: { [path: string]: string }
+  ): void {
+    let index = 0;
+    let successCount = 0;
+    let failureCount = 0;
+
+    const next = () => {
+      if (index >= fileItems.length) {
+        this.folderUploadLoading = false;
+        this.folderUploadStatus = '';
+        if (successCount > 0) {
+          this.userService.refreshStorageInfo();
+        }
+        this.loadData();
+        if (failureCount === 0) {
+          this.toast.success(`Uploaded ${successCount} files successfully.`);
+        } else {
+          this.toast.warning(`Uploaded ${successCount} files, ${failureCount} failed.`);
+        }
+        return;
+      }
+
+      const item = fileItems[index++];
+      const folderId = pathToIdMap[item.folderPath] || pathToIdMap[''];
+      if (!folderId) {
+        failureCount += 1;
+        next();
+        return;
+      }
+
+      this.folderUploadStatus = `Uploading ${item.file.name} (${index}/${fileItems.length})...`;
+      this.uploadFileToFolder(item.file, folderId, item.relativePath, (ok) => {
+        if (ok) {
+          successCount += 1;
+        } else {
+          failureCount += 1;
+        }
+        next();
+      });
+    };
+
+    next();
+  }
+
+  /**
+   * Upload a single file to S3 and save its metadata in the correct folder.
+   */
+  private uploadFileToFolder(
+    file: File,
+    folderId: string,
+    relativePath: string,
+    callback: (success: boolean) => void
+  ): void {
+    this.fileService.getUploadUrl(file.name, file.type, file.size, relativePath).subscribe({
+      next: (urlRes) => {
+        if (!urlRes?.success) {
+          callback(false);
+          return;
+        }
+
+        this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
+          next: (event) => {
+            if (event.type === HttpEventType.Response) {
+              this.fileService
+                .saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId)
+                .subscribe({
+                  next: (saveRes) => {
+                    callback(saveRes?.success ?? false);
+                  },
+                  error: () => {
+                    callback(false);
+                  }
+                });
+            }
+          },
+          error: () => {
+            callback(false);
+          }
+        });
+      },
+      error: () => {
+        callback(false);
+      }
+    });
   }
   formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + ' B';

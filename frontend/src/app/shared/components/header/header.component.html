@@ -32,12 +32,21 @@
     <img src="/icons/search.svg" alt="search" class="icon" />
   </button>
 
-  <div class="header-right">
-    <button class="avatar-btn" aria-label="Profile">
+  <div class="header-right" #profileMenu>
+    <button class="avatar-btn" aria-label="Profile" (click)="toggleProfileMenu($event)">
       <div class="avatar" id="header-avatar">
         <img src="/icons/user.svg" alt="profile" class="icon icon--avatar" />
       </div>
     </button>
+
+    <div class="profile-dropdown" *ngIf="profileMenuOpen">
+      <button type="button" class="profile-dropdown-item" (click)="updateProfile()">
+        Update Profile
+      </button>
+      <button type="button" class="profile-dropdown-item" (click)="logout()">
+        Logout
+      </button>
+    </div>
   </div>
 
 </header>

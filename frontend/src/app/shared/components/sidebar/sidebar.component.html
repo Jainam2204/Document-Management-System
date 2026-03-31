@@ -1,11 +1,18 @@
 <aside class="sidebar" [class.sidebar--collapsed]="collapsed" id="app-sidebar">
-  <nav class="sidebar-nav" aria-label="Main navigation">
+  <!-- <div class="sidebar-fixed-top">
+    <button class="logout-btn logout-btn--top" id="sidebar-logout" title="Logout" (click)="onLogout()">
+      <img src="/icons/logout.svg" alt="logout" class="icon" />
+      <span class="sidebar-label">Logout</span>
+    </button>
+  </div> -->
 
+  <div class="sidebar-content">
     <div class="sidebar-new">
       <app-file-action-dropdown variant="sidebar" (action)="onAction($event)"></app-file-action-dropdown>
     </div>
 
-    <ul class="sidebar-list">
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <ul class="sidebar-list">
       <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'files'" (click)="setActive('files')"
         id="sidebar-my-files">
         <a class="sidebar-link" title="My Files">
@@ -41,7 +48,7 @@
 
             <!-- Progress Bar -->
             <div class="progress-track">
-              <div class="progress-fill" [style.width.%]="(storageUsed / storageTotal) * 100">
+              <div class="progress-fill" [style.width.%]="storageTotal ? (storageUsed / storageTotal) * 100 : 0">
               </div>
             </div>
             <!--             
@@ -54,13 +61,7 @@
       </li>
     </ul>
   </nav>
-
-  <footer class="sidebar-footer">
-    <button class="logout-btn" id="sidebar-logout" title="Logout" (click)="onLogout()">
-      <img src="/icons/logout.svg" alt="logout" class="icon" />
-      <span class="sidebar-label">Logout</span>
-    </button>
-  </footer>
+  </div>
 </aside>
 
 <div class="sidebar-overlay" *ngIf="!collapsed && isMobile" (click)="onOverlayClick()" id="sidebar-overlay">

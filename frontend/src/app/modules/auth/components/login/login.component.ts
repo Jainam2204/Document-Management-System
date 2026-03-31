@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LoginDetails } from '../../models/LoginDetails';
 import { LoginResponse } from '../../models/LoginResponse';
@@ -34,25 +34,59 @@ errorMsg: string = '';
         this.authService.login(loginDetails).subscribe({
             next: (res: LoginResponse) => {
                 this.toast.success(res.message);
-
-                // Redirect immediately if the password is already expired.
-                if ('passwordExpiry' in res && res.passwordExpiry?.isPasswordExpired) {
-                    this.router.navigate(['/auth/reset-password']);
-                    return;
-                }
-
-                if ('passwordExpiry' in res && res.passwordExpiry?.isPasswordNearExpiry) {
-                    this.toast.warning(`Your password will expire in ${res.passwordExpiry.daysToExpire} day${res.passwordExpiry.daysToExpire === 1 ? '' : 's'}.`);
-                }
-
-                this.router.navigate(['/home']);
+                this.handleLoginResponse(res);
             },
-
             error: (err: HttpErrorResponse) => {
                 console.error('Error : ', err);
                 this.errorMsg = err?.error?.message;
             }
         });
+    }
+
+    /**
+     * Determine the next step after login based on expiry metadata.
+     * @param response - Login response from the backend.
+     */
+    private handleLoginResponse(response: LoginResponse): void {
+        if (this.isPasswordExpired(response)) {
+            this.router.navigate(['/auth/reset-password']);
+            return;
+        }
+
+        if (this.isPasswordNearExpiry(response)) {
+            this.showExpiryWarning(this.daysToExpire(response));
+        }
+
+        this.router.navigate(['/home']);
+    }
+
+    /**
+     * Check if the response indicates an expired password.
+     */
+    private isPasswordExpired(response: LoginResponse): boolean {
+        return response.success === true && !!response.passwordExpiry?.isPasswordExpired;
+    }
+
+    /**
+     * Check if the response indicates the password is nearing expiry.
+     */
+    private isPasswordNearExpiry(response: LoginResponse): boolean {
+        return response.success === true && !!response.passwordExpiry?.isPasswordNearExpiry;
+    }
+
+    /**
+     * Get the number of days remaining until password expiry.
+     */
+    private daysToExpire(response: LoginResponse): number {
+        return response.success === true ? response.passwordExpiry?.daysToExpire ?? 0 : 0;
+    }
+
+    /**
+     * Show the password expiry warning message.
+     */
+    private showExpiryWarning(daysRemaining: number): void {
+        const unit = daysRemaining === 1 ? '' : 's';
+        this.toast.warning(`Your password will expire in ${daysRemaining} day${unit}.`);
     }
 }
 

@@ -145,6 +145,7 @@
     </div>
 
     <div class="drive__loading" *ngIf="loading">Loading files...</div>
+    <div class="drive__loading" *ngIf="folderUploadLoading">{{ folderUploadStatus || 'Uploading folder...' }}</div>
 
     <div class="drive__section" *ngIf="folders.length > 0">
         <div class="drive__section-title">Folders</div>
@@ -153,7 +154,10 @@
             <div class="folder-card" *ngFor="let folder of folders" (click)="onFolderClick(folder)">
                 <div class="folder-card__left">
                     <span class="folder-card__emoji" aria-hidden="true">📁</span>
-                    <span class="folder-card__name-text">{{ folder.name }}</span>
+                    <div>
+                        <div class="folder-card__name-text">{{ folder.name }}</div>
+                        <div class="folder-card__meta">{{ (folder.size || 0) | size }}</div>
+                    </div>
                 </div>
                 <div class="folder-card__actions" (click)="$event.stopPropagation()">
                     <app-file-action-dropdown
