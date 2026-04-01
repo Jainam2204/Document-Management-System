@@ -195,8 +195,12 @@ const softDeleteFolderTree = async (folderId, ownerId) => {
         .select('size parentFolder')
         .lean();
 
+    const subtreeSize = await getFolderSubtreeSize(folderId, ownerId);
+    if (subtreeSize > 0) {
+        await updateUserStorage(ownerId, -subtreeSize);
+    }
+
     if (rootFolder && rootFolder.parentFolder) {
-        const subtreeSize = await getFolderSubtreeSize(folderId, ownerId);
         await updateFolderSizeAncestors(rootFolder.parentFolder, -subtreeSize, ownerId);
     }
 
@@ -232,6 +236,9 @@ const restoreFolderTree = async (folderId, ownerId) => {
     if (rootFolder && rootFolder.parentFolder) {
         const subtreeSize = await getFolderSubtreeSize(folderId, ownerId, true);
         await updateFolderSizeAncestors(rootFolder.parentFolder, subtreeSize, ownerId);
+        if (subtreeSize > 0) {
+            await updateUserStorage(ownerId, subtreeSize);
+        }
     }
 };
 
@@ -252,8 +259,11 @@ const permanentlyDeleteFileById = async (fileId, ownerId) => {
         await updateFolderSizeAncestors(file.folder, -(file.size || 0), ownerId);
     }
 
+    if (!file.isDeleted) {
+        await updateUserStorage(ownerId, -(file.size || 0));
+    }
+
     await File.deleteOne({ _id: fileId, owner: ownerId });
-    await User.findByIdAndUpdate(ownerId, { $inc: { storageUsed: -(file.size || 0) } });
     return file;
 };
 
@@ -300,7 +310,6 @@ export const getUploadUrl = async (req, res) => {
             });
         }
 
-        // Normalize relative path and build a folder-style S3 key.
         let normalizedPath = '';
         if (relativePath && typeof relativePath === 'string') {
             normalizedPath = relativePath
@@ -387,6 +396,35 @@ export const saveFileMetadata = async (req, res) => {
     }
 };
 
+export const getFileDownloadUrl = async (req, res) => {
+    try {
+        const file = await File.findOne({
+            _id: req.params.id,
+            owner: req.user._id,
+            isDeleted: false,
+        }).lean();
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'File not found',
+            });
+        }
+
+        const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
+
+        return res.status(200).json({
+            success: true,
+            downloadUrl,
+        });
+    } catch (error) {
+        console.error('Error in getFileDownloadUrl: ' + error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate download URL',
+        });
+    }
+};
 
 export const getUserFiles = async (req, res) => {
     try {
@@ -679,6 +717,8 @@ export const restoreFile = async (req, res) => {
             await updateFolderSizeAncestors(file.folder, file.size || 0, req.user._id);
         }
 
+        await updateUserStorage(req.user._id, file.size || 0);
+
         return res.status(200).json({
             success: true,
             message: 'File restored successfully',
@@ -862,6 +902,8 @@ export const updateFileDeleteStatus = async (req, res) => {
         if (file.folder) {
             await updateFolderSizeAncestors(file.folder, -(file.size || 0), req.user._id);
         }
+
+        await updateUserStorage(req.user._id, -(file.size || 0));
 
         await file.save();
 
@@ -1074,7 +1116,7 @@ export const generateShareLink = async (req, res) => {
                 });
             }
 
-            const downloadUrl = await generateDownloadUrl(resource.s3Key, expiresInSeconds);
+            const downloadUrl = await generateDownloadUrl(resource.s3Key, expiresInSeconds, resource.name);
             return res.status(201).json({
                 success: true,
                 url: downloadUrl,
@@ -1140,7 +1182,7 @@ export const getSharedResource = async (req, res) => {
                 });
             }
 
-            const downloadUrl = await generateDownloadUrl(file.s3Key, 300);
+            const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
             return res.redirect(downloadUrl);
         }
 
@@ -1167,7 +1209,7 @@ export const getSharedResource = async (req, res) => {
                 name: file.name,
                 type: file.type,
                 size: file.size,
-                downloadUrl: await generateDownloadUrl(file.s3Key, 300)
+                downloadUrl: await generateDownloadUrl(file.s3Key, 300, file.name)
             }))
         );
 

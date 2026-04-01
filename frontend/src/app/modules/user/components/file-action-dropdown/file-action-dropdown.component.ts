@@ -22,6 +22,7 @@ export type FileActionEvent =
   | { type: 'uploadFolder'; data: File[] }
   | { type: 'rename'; data: FolderRecord | FileRecord }
   | { type: 'share'; data: FolderRecord | FileRecord }
+  | { type: 'download'; data: FileRecord }
   | { type: 'delete'; data: FolderRecord | FileRecord };
 
 @Component({
@@ -180,6 +181,15 @@ export class FileActionDropdownComponent implements OnChanges {
     const data = this.targetRecordForItemActions();
     if (data) {
       this.action.emit({ type: 'share', data });
+    }
+  }
+
+  emitDownload(ev: MouseEvent): void {
+    ev.stopPropagation();
+    this.closeDropdown();
+    const data = this.targetRecordForItemActions();
+    if (data && this.isFileRecord(data)) {
+      this.action.emit({ type: 'download', data });
     }
   }
 

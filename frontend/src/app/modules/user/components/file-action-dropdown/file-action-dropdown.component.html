@@ -81,6 +81,12 @@
           <span class="fad__menu-ico" aria-hidden="true">✏️</span>
           <span>Rename</span>
         </button>
+        @if (isFileRecord(item)) {
+          <button type="button" class="fad__menu-item" role="menuitem" (click)="emitDownload($event)">
+            <span class="fad__menu-ico" aria-hidden="true">⬇️</span>
+            <span>Download</span>
+          </button>
+        }
         <button type="button" class="fad__menu-item" role="menuitem" (click)="emitShare($event)">
           <span class="fad__menu-ico" aria-hidden="true">🔗</span>
           <span>Share</span>

@@ -3,7 +3,6 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment.development';
 import { HttpClient } from '@angular/common/http';
 import { FileService } from '../file/file.service';
-import { StorageService } from '../storage/storage.service';
 
 interface UserStorageResponse {
     success: boolean,
@@ -28,7 +27,7 @@ export class UserService {
 
     url = environment.API_URL;
 
-    constructor(private http: HttpClient, private fileService: FileService, private storageService: StorageService) {}
+    constructor(private http: HttpClient, private fileService: FileService) {}
 
     getStorageInfo(): Observable<UserStorageResponse | GenericResponse> {
         return this.http.get<UserStorageResponse | GenericResponse>(this.url + '/users/used-storage');

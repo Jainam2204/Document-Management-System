@@ -7,8 +7,6 @@ import jwt from 'jsonwebtoken';
 import Counter from '../models/Counter.js';
 
 const PASSWORD_EXPIRY_DAYS = Number(process.env.PASSWORD_EXPIRY_DAYS) || 90;
-const PASSWORD_EXPIRY_WARNING_DAYS = Number(process.env.PASSWORD_EXPIRY_WARNING_DAYS) || 5;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const generateAccessToken = (payload) => {
     try {
@@ -16,15 +14,12 @@ const generateAccessToken = (payload) => {
             payload,
             process.env.JWT_ACCESS_SECRET,
             { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
-
         );
-
         return token;
     } catch (error) {
-        console.error("Error in generateAccessToken : " + error)
+        console.error("Error in generateAccessToken : " + error);
     }
-}
-
+};
 
 const generateRefreshToken = (payload) => {
     try {
@@ -33,35 +28,12 @@ const generateRefreshToken = (payload) => {
             process.env.JWT_REFRESH_SECRET,
             { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
         );
-
         return token;
     } catch (error) {
-        console.error("Error in generateRefreshToken : " + error)
+        console.error("Error in generateRefreshToken : " + error);
     }
-}
-
-const buildPasswordExpiryInfo = (user) => {
-    const lastUpdatedAt = user.passwordLastUpdatedAt || user.passwordChangedAt || new Date();
-    const expiryDuration = user.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS;
-    const expiresAt = user.passwordExpiresAt
-        ? new Date(user.passwordExpiresAt)
-        : new Date(lastUpdatedAt.getTime() + expiryDuration * DAY_MS);
-
-    const now = new Date();
-    const diffMs = expiresAt.getTime() - now.getTime();
-    const daysToExpire = Math.max(0, Math.ceil(diffMs / DAY_MS));
-    const isPasswordExpired = diffMs <= 0;
-    const isPasswordNearExpiry = !isPasswordExpired && daysToExpire <= PASSWORD_EXPIRY_WARNING_DAYS;
-
-    return {
-        isPasswordExpired,
-        isPasswordNearExpiry,
-        daysToExpire,
-        passwordLastUpdatedAt: lastUpdatedAt,
-        passwordExpiresAt: expiresAt,
-        passwordExpiryDuration: expiryDuration,
-    };
 };
+
 
 
 export const login = async (req, res) => {
@@ -69,7 +41,6 @@ export const login = async (req, res) => {
         const { email, password } = req.body;
 
         const existingUser = await User.findOne({ email });
-
         if (!existingUser) {
             return res.status(404).json({
                 success: false,
@@ -78,13 +49,11 @@ export const login = async (req, res) => {
         }
 
         let doesPasswordMatch;
-
-        if(email === admin.email){
+        if (email === admin.email) {
             doesPasswordMatch = password === admin.password ? true : false;
         } else {
             doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
         }
-
 
         if (!doesPasswordMatch) {
             return res.status(404).json({
@@ -93,18 +62,13 @@ export const login = async (req, res) => {
             });
         }
 
-        const expiryInfo = buildPasswordExpiryInfo(existingUser);
-        if (!existingUser.passwordExpiresAt || !existingUser.passwordLastUpdatedAt || !existingUser.passwordExpiryDuration) {
+        if (!existingUser.passwordLastUpdatedAt) {
             await User.findByIdAndUpdate(existingUser._id, {
-                passwordLastUpdatedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordChangedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordExpiryDuration: expiryInfo.passwordExpiryDuration,
-                passwordExpiresAt: expiryInfo.passwordExpiresAt,
+                passwordLastUpdatedAt: new Date()
             });
         }
 
         const isAdmin = existingUser.isAdmin;
-
         const accessToken = generateAccessToken({ email, isAdmin });
         const refreshToken = generateRefreshToken({ email, isAdmin });
 
@@ -127,15 +91,11 @@ export const login = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Login successful",
-            passwordExpiry: {
-                isPasswordExpired: expiryInfo.isPasswordExpired,
-                isPasswordNearExpiry: expiryInfo.isPasswordNearExpiry,
-                daysToExpire: expiryInfo.daysToExpire,
-                passwordLastUpdatedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordExpiresAt: expiryInfo.passwordExpiresAt,
-                passwordExpiryDuration: expiryInfo.passwordExpiryDuration,
-            },
+            isAdmin: existingUser.isAdmin,
+            passwordLastUpdatedAt: existingUser.passwordLastUpdatedAt || new Date(),
+            expiryDays: existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS
         });
+
     } catch (error) {
         console.error("Error in login : " + error);
         res.status(500).json({
@@ -150,20 +110,20 @@ export const register = async (req, res) => {
     try {
         const newUser = req.body;
         const hashedPassword = await bcrypt.hash(newUser.password, 10);
-        const userCount = await Counter.findOneAndUpdate({ collectionName: 'users' },
-            { $inc: { count: 1 } },
-            { new: true, upsert: true });
 
-        const expiryDuration = Number(process.env.PASSWORD_EXPIRY_DAYS) || PASSWORD_EXPIRY_DAYS;
+        const userCount = await Counter.findOneAndUpdate(
+            { collectionName: 'users' },
+            { $inc: { count: 1 } },
+            { new: true, upsert: true }
+        );
+
         const now = new Date();
-        const expiresAt = new Date(now.getTime() + expiryDuration * DAY_MS);
 
         newUser.id = userCount.count;
         newUser.password = hashedPassword;
         newUser.passwordLastUpdatedAt = now;
         newUser.passwordChangedAt = now;
-        newUser.passwordExpiryDuration = expiryDuration;
-        newUser.passwordExpiresAt = expiresAt;
+        newUser.passwordExpiryDuration = PASSWORD_EXPIRY_DAYS;
 
         await User.create(newUser);
 
@@ -179,7 +139,7 @@ export const register = async (req, res) => {
             message: "Error occured while creating user account"
         });
     }
-}
+};
 
 
 export const getPasswordStatus = async (req, res) => {
@@ -193,28 +153,12 @@ export const getPasswordStatus = async (req, res) => {
             });
         }
 
-        const expiryInfo = buildPasswordExpiryInfo(existingUser);
-
-        if (!existingUser.passwordExpiresAt || !existingUser.passwordLastUpdatedAt || !existingUser.passwordExpiryDuration) {
-            await User.findByIdAndUpdate(existingUser._id, {
-                passwordLastUpdatedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordChangedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordExpiryDuration: expiryInfo.passwordExpiryDuration,
-                passwordExpiresAt: expiryInfo.passwordExpiresAt,
-            });
-        }
-
         return res.status(200).json({
             success: true,
-            passwordExpiry: {
-                isPasswordExpired: expiryInfo.isPasswordExpired,
-                isPasswordNearExpiry: expiryInfo.isPasswordNearExpiry,
-                daysToExpire: expiryInfo.daysToExpire,
-                passwordLastUpdatedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordExpiresAt: expiryInfo.passwordExpiresAt,
-                passwordExpiryDuration: expiryInfo.passwordExpiryDuration,
-            },
+            passwordLastUpdatedAt: existingUser.passwordLastUpdatedAt || new Date(),
+            expiryDays: existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS
         });
+
     } catch (error) {
         console.error('Error in getPasswordStatus: ' + error);
         res.status(500).json({
@@ -223,6 +167,7 @@ export const getPasswordStatus = async (req, res) => {
         });
     }
 };
+
 
 
 export const changePassword = async (req, res) => {
@@ -237,7 +182,6 @@ export const changePassword = async (req, res) => {
         }
 
         const existingUser = await User.findOne({ email: req.user.email });
-
         if (!existingUser) {
             return res.status(404).json({
                 success: false,
@@ -270,37 +214,21 @@ export const changePassword = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         const now = new Date();
-        const expiryDuration = existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS;
-        const expiresAt = new Date(now.getTime() + expiryDuration * DAY_MS);
 
         await User.findByIdAndUpdate(existingUser._id, {
             password: hashedPassword,
             passwordLastUpdatedAt: now,
             passwordChangedAt: now,
-            passwordExpiryDuration: expiryDuration,
-            passwordExpiresAt: expiresAt,
-        });
-
-        const expiryInfo = buildPasswordExpiryInfo({
-            ...existingUser.toObject(),
-            passwordLastUpdatedAt: now,
-            passwordChangedAt: now,
-            passwordExpiryDuration: expiryDuration,
-            passwordExpiresAt: expiresAt,
+            passwordExpiryDuration: existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS
         });
 
         return res.status(200).json({
             success: true,
             message: 'Password changed successfully',
-            passwordExpiry: {
-                isPasswordExpired: expiryInfo.isPasswordExpired,
-                isPasswordNearExpiry: expiryInfo.isPasswordNearExpiry,
-                daysToExpire: expiryInfo.daysToExpire,
-                passwordLastUpdatedAt: expiryInfo.passwordLastUpdatedAt,
-                passwordExpiresAt: expiryInfo.passwordExpiresAt,
-                passwordExpiryDuration: expiryInfo.passwordExpiryDuration,
-            },
+            passwordLastUpdatedAt: now,
+            expiryDays: existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS
         });
+
     } catch (error) {
         console.error('Error in changePassword: ' + error);
         res.status(500).json({
@@ -315,8 +243,7 @@ export const verify = async (req, res) => {
     try {
         const [verificationCode, email] = req.body;
 
-        const existingUser = await User.findOne({ email })
-
+        const existingUser = await User.findOne({ email });
         if (!existingUser) {
             return res.status(404).json({
                 success: false,
@@ -327,7 +254,7 @@ export const verify = async (req, res) => {
         if (existingUser.verificationCode !== verificationCode) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalis verification code'
+                message: 'Invalid verification code'
             });
         }
 
@@ -337,7 +264,6 @@ export const verify = async (req, res) => {
         });
 
         const isAdmin = existingUser.isAdmin;
-
         const accessToken = generateAccessToken({ email, isAdmin });
         const refreshToken = generateRefreshToken({ email, isAdmin });
 
@@ -357,25 +283,23 @@ export const verify = async (req, res) => {
             path: '/'
         });
 
-
         return res.status(200).json({
             success: true,
             message: "Verified successfully",
         });
 
     } catch (error) {
-        console.error("Error in register : " + error);
+        console.error("Error in verify : " + error);
         res.status(500).json({
             success: false,
-            message: "Error occured while creating user account"
+            message: "Error occured while verifying account"
         });
     }
-}
+};
 
 
 export const generateExpiredAccessToken = (req, res) => {
     try {
-
         const refreshToken = req.cookies?.refreshToken;
 
         if (!refreshToken) {
@@ -416,8 +340,8 @@ export const generateExpiredAccessToken = (req, res) => {
             message: "Internal server fail"
         });
     }
+};
 
-}
 
 export const logout = (req, res) => {
     try {
@@ -438,6 +362,7 @@ export const logout = (req, res) => {
             success: true,
             message: "Logged out successfully"
         });
+
     } catch (error) {
         console.error("Error in logout : " + error);
         res.status(404).json({
@@ -445,4 +370,4 @@ export const logout = (req, res) => {
             message: "Error occured while logging out"
         });
     }
-}
+};

@@ -1,18 +1,11 @@
 import { ErrorResponse } from "../../../shared/models/BackendResponse";
 
-export interface PasswordExpiryInfo {
-    isPasswordExpired: boolean;
-    isPasswordNearExpiry: boolean;
-    daysToExpire: number;
-    passwordLastUpdatedAt: string;
-    passwordExpiresAt: string;
-    passwordExpiryDuration: number;
-}
-
 export interface LoginSuccessResponse {
     success: true;
     message: string;
-    passwordExpiry?: PasswordExpiryInfo;
+    isAdmin?: boolean;
+    passwordLastUpdatedAt?: string;
+    expiryDays?: number;
 }
 
 export type LoginResponse = LoginSuccessResponse | ErrorResponse;
