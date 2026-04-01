@@ -11,6 +11,7 @@ import { BackendResponse } from '../../models/BackendResponse';
 import { Subscription, concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finalize } from 'rxjs';
 import { SizePipe } from '../../pipes/size/size.pipe';
 import { UserService } from '../../../services/user/user.service';
+import { StorageService } from '../../../services/storage/storage.service';
 
 @Component({
     selector: 'app-sidebar',
@@ -26,7 +27,7 @@ export class SidebarComponent implements OnDestroy {
 
     activeItem = 'files';
     storageUsed = 0;
-    storageTotal = 0;
+    storageLimit = 0;
     private storageSubscription?: Subscription;
     isMobile = false;
     showNewMenu = false;
@@ -35,35 +36,29 @@ export class SidebarComponent implements OnDestroy {
 
     constructor(
         private fileService: FileService,
-        private userService: UserService,
+        private storageService: StorageService,
         private toast: ToastService,
         private router: Router,
         private authService: AuthService,
-        private route: ActivatedRoute,
         private routeHelper: RouteHelperService
     ) {
         this.checkMobile();
     }
 
     ngOnInit() {
-        this.getStorage();
-    }
+        this.storageService.storage$.subscribe(data => {
+            this.storageUsed = data.storageUsed;
+            this.storageLimit = data.storageLimit;
+        });
 
+        this.storageService.refreshStorage();
+    }
     ngAfterViewInit() {
         this.folderInput.nativeElement.setAttribute('webkitdirectory', '');
     }
 
     toggleNewMenu() {
         this.showNewMenu = !this.showNewMenu;
-    }
-
-    getStorage() {
-        this.storageSubscription = this.userService.storage$.subscribe((storage) => {
-            this.storageUsed = storage.storageUsed;
-            this.storageTotal = storage.storageLimit;
-        });
-
-        this.userService.refreshStorageInfo();
     }
 
     getFolderId() {
@@ -81,7 +76,7 @@ export class SidebarComponent implements OnDestroy {
             next: (res) => {
                 if (res.success) {
                     this.toast.success('Folder created successfully');
-                    this.fileService.fileUploaded$.next();
+                    this.storageService.refreshStorage();
                 } else {
                     this.toast.error(res.message);
                 }
@@ -93,34 +88,6 @@ export class SidebarComponent implements OnDestroy {
         });
     }
 
-    // openDialog() {
-    //   this.showDialog = true;
-    // }
-
-    // closeDialog() {
-    //   this.showDialog = false;
-    //   this.newFolderName = '';
-    // }
-
-    // createFolder() {
-    //   if (!this.newFolderName.trim()) return;
-    //   this.fileService.createFolder(this.newFolderName.trim(), this.currentFolderId!).subscribe({
-    //     next: (res) => {
-    //       if (res.success) {
-    //         this.folders.unshift(res.folder);
-    //         this.toast.success('Folder created successfully');
-    //         this.closeDialog();
-    //       } else {
-    //         this.toast.error(res.message || 'Failed to create folder');
-    //       }
-    //     },
-    //     error: (err) => {
-    //       console.error('Error creating folder:', err);
-    //       this.toast.error('Failed to create folder');
-    //     }
-    //   });
-    // }
-
     triggerFileUpload() {
         this.showNewMenu = false;
         this.fileInput.nativeElement.click();
@@ -131,176 +98,12 @@ export class SidebarComponent implements OnDestroy {
         this.folderInput.nativeElement.click();
     }
 
-    // async onFileSelected(event: any): Promise<void> {
-    //     const file: File = event.target.files[0];
-    //     if (!file) return;
+    /* 
+    Select folder → validate files → extract root folder name → build subfolder paths → 
+    create folder structure in backend → map folder paths to IDs → loop through files sequentially
+    → determine each file’s parent folder → request S3 upload URL → upload file to S3 → save file metadata in database → track upload progress → handle errors if any → on completion show success and refresh UI
 
-    //     event.target.value = '';
-
-    //     this.uploading = true;
-    //     this.toast.warning('Uploading ' + file.name + '...');
-
-    //     try {
-    //         const urlRes = await this.fileService
-    //             .getUploadUrl(file.name, file.type, file.size)
-    //             .toPromise();
-
-    //         if (!urlRes || !urlRes.success) {
-    //             this.toast.error(urlRes?.message || 'Failed to get upload URL');
-    //             this.uploading = false;
-    //             return;
-    //         }
-
-    //         await new Promise<void>((resolve, reject) => {
-    //             this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
-    //                 next: (event) => {
-    //                     if (event.type === HttpEventType.Response) {
-    //                         resolve();
-    //                     }
-    //                 },
-    //                 error: (err) => reject(err),
-    //             });
-    //         });
-
-    //         const saveRes = await this.fileService
-    //             .saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type)
-    //             .toPromise();
-
-    //         if (!saveRes || !saveRes.success) {
-    //             this.toast.error(saveRes?.message || 'Failed to save file');
-    //             this.uploading = false;
-    //             return;
-    //         }
-
-    //         this.toast.success(file.name + ' uploaded successfully!');
-    //         this.fileService.fileUploaded$.next();
-    //     } catch (err: any) {
-    //         console.error('Upload error:', err);
-    //         this.toast.error('Upload failed: ' + (err.message || 'Unknown error'));
-    //     } finally {
-    //         this.uploading = false;
-    //     }
-    // }
-
-    // async onFolderSelected(event: any): Promise<void> {
-    //   const fileList: FileList = event.target.files;
-    //   if (!fileList || fileList.length === 0) return;
-
-    //   event.target.value = '';
-
-    //   const files: File[] = Array.from(fileList);
-    //   const total = files.length;
-
-    //   // Step 1: Extract folder structure from webkitRelativePath
-    //   // Paths look like: "RootFolder/sub/nested/file.txt"
-
-    //   const firstFile = files[0];
-
-    //   console.log(event.target.files);
-    //   console.log((files[0] as any).webkitRelativePath);
-
-    //   if (!firstFile || !(firstFile as any).webkitRelativePath) {
-    //     this.toast.error("Folder upload not supported or invalid selection");
-    //     return;
-    //   }
-    //   const firstPath = (files[0] as any).webkitRelativePath as string;
-    //   const rootName = firstPath.split('/')[0];
-
-    //   const folderPaths = new Set<string>();
-    //   for (const file of files) {
-    //     const relativePath = (file as any).webkitRelativePath;
-
-    //     if (!relativePath) {
-    //       console.warn("Skipping file without relative path:", file.name);
-    //       continue;
-    //     }
-    //     const parts = relativePath.split('/');
-    //     // Skip first part (rootName) and last part (fileName)
-    //     // Build sub-paths relative to root
-    //     for (let i = 2; i < parts.length; i++) {
-    //       const subPath = parts.slice(1, i).join('/');
-    //       folderPaths.add(subPath);
-    //     }
-    //   }
-
-    //   this.uploading = true;
-    //   this.toast.warning(`Preparing folder "${rootName}" (${total} files)...`);
-
-    //   try {
-    //     // Step 2: Create folder tree in backend
-    //     const treeRes = await this.fileService
-    //       .createFolderTree(rootName, Array.from(folderPaths))
-    //       .toPromise();
-
-    //     if (!treeRes || !treeRes.success) {
-    //       this.toast.error(treeRes?.message || 'Failed to create folder structure');
-    //       this.uploading = false;
-    //       return;
-    //     }
-
-    //     const pathToIdMap = treeRes.pathToIdMap;
-
-    //     // Step 3: Upload each file with correct folderId
-    //     let uploaded = 0;
-    //     let failed = 0;
-
-    //     for (const file of files) {
-    //       const relativePath = (file as any).webkitRelativePath as string;
-    //       const parts = relativePath.split('/');
-    //       // Sub-path of the parent folder (relative to root), empty string if file is directly in root
-    //       const parentSubPath = parts.slice(1, -1).join('/');
-    //       const folderId = parentSubPath === ''
-    //         ? pathToIdMap['']    // root folder
-    //         : pathToIdMap[parentSubPath];
-
-    //       try {
-    //         // 3a: Get pre-signed URL
-    //         const urlRes = await this.fileService
-    //           .getUploadUrl(file.name, file.type || 'application/octet-stream', file.size)
-    //           .toPromise();
-
-    //         if (!urlRes || !urlRes.success) {
-    //           failed++;
-    //           continue;
-    //         }
-
-    //         // 3b: Upload to S3
-    //         await new Promise<void>((resolve, reject) => {
-    //           this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
-    //             next: (ev: any) => {
-    //               if (ev.type === 4) resolve(); // HttpEventType.Response = 4
-    //             },
-    //             error: (err: any) => reject(err),
-    //           });
-    //         });
-
-    //         // 3c: Save metadata
-    //         await this.fileService
-    //           .saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type || 'application/octet-stream', folderId)
-    //           .toPromise();
-
-    //         uploaded++;
-    //         this.toast.success(`Uploaded ${uploaded}/${total}: ${file.name}`);
-    //       } catch (err) {
-    //         console.error(`Failed to upload ${file.name}:`, err);
-    //         failed++;
-    //       }
-    //     }
-
-    //     if (failed > 0) {
-    //       this.toast.error(`Folder upload complete: ${uploaded} succeeded, ${failed} failed`);
-    //     } else {
-    //       this.toast.success(`Folder "${rootName}" uploaded successfully! (${uploaded} files)`);
-    //     }
-
-    //     this.fileService.fileUploaded$.next();
-    //   } catch (err: any) {
-    //     console.error('Folder upload error:', err);
-    //     this.toast.error('Folder upload failed: ' + (err.message || 'Unknown error'));
-    //   } finally {
-    //     this.uploading = false;
-    //   }
-    // }
+    */
 
     onFileSelected(event: any) {
         const file: File = event.target.files[0];
@@ -345,7 +148,7 @@ export class SidebarComponent implements OnDestroy {
                 }
 
                 this.toast.success(file.name + ' uploaded successfully!');
-                this.fileService.fileUploaded$.next();
+                this.storageService.refreshStorage();
             }),
 
             catchError((err) => {
@@ -403,14 +206,12 @@ export class SidebarComponent implements OnDestroy {
         this.uploading = true;
         this.toast.warning(`Uploading folder "${rootName}" (${files.length} files)...`);
 
-        // Create folder tree first
         this.fileService.createFolderTree(rootName, Array.from(folderPaths)).pipe(
             tap(treeRes => {
                 if (!treeRes?.success) {
                     throw new Error("Failed to create folder structure");
                 }
             }),
-            // Then upload files sequentially
             concatMap(treeRes => {
                 const pathToIdMap = treeRes.pathToIdMap;
                 let uploaded = 0;
@@ -428,7 +229,7 @@ export class SidebarComponent implements OnDestroy {
                         return this.fileService.getUploadUrl(file.name, file.type || 'application/octet-stream', file.size).pipe(
                             concatMap(urlRes => {
                                 if (!urlRes?.success) {
-                                    return EMPTY; // Skip this file
+                                    return EMPTY;
                                 }
 
                                 return this.fileService.uploadToS3(urlRes.uploadUrl, file).pipe(
@@ -452,7 +253,7 @@ export class SidebarComponent implements OnDestroy {
         ).subscribe({
             complete: () => {
                 this.toast.success(`Folder uploaded successfully!`);
-                this.fileService.fileUploaded$.next();
+                this.storageService.refreshStorage();
                 this.uploading = false;
             },
             error: () => {
@@ -491,13 +292,13 @@ export class SidebarComponent implements OnDestroy {
             next: (res) => {
                 if (res?.success) {
                     this.toast.success('Folder created successfully');
-                    this.fileService.fileUploaded$.next();
+                    this.storageService.refreshStorage();
                 } else {
                     this.toast.error(res?.message || 'Failed to create folder');
                 }
             },
             error: (err) => {
-                this.toast.error('Failed to create folder');
+                this.toast.error(err?.error?.message || 'Failed to create folder');
             }
         });
     }
@@ -517,7 +318,7 @@ export class SidebarComponent implements OnDestroy {
                                 next: (saveRes) => {
                                     if (saveRes?.success) {
                                         this.toast.success(file.name + ' uploaded successfully!');
-                                        this.fileService.fileUploaded$.next();
+                                        this.storageService.refreshStorage();
                                     } else {
                                         this.toast.error(saveRes?.message || 'Failed to save file');
                                     }
@@ -622,7 +423,7 @@ export class SidebarComponent implements OnDestroy {
         const next = () => {
             if (index >= fileItems.length) {
                 this.uploading = false;
-                this.fileService.fileUploaded$.next();
+                this.storageService.refreshStorage();
                 if (failureCount === 0) {
                     this.toast.success(`Uploaded ${successCount} files successfully.`);
                 } else {

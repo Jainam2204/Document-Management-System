@@ -14,9 +14,9 @@ export const getUsedStorage = (req, res) => {
         })
     } catch (error) {
         console.error("Error in getUsedStorage : " + error);
-        res.status(400).json({
+        res.status(500).json({
             success: false,
-            message: "Error occured while getting user storage"
+            message: "Internal server error"
         });
     }
 }

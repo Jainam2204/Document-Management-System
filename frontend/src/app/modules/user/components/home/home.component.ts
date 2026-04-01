@@ -11,11 +11,9 @@ import { UserService } from '../../../../services/user/user.service';
 import { RouteHelperService } from '../../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
+import { StorageService } from '../../../../services/storage/storage.service';
 
-/**
- * Home view component for managing user files and folders.
- * Handles navigation, filtering, uploads, and action dialogs.
- */
+
 @Component({
   selector: 'app-home',
   imports: [CommonModule, FormsModule, FileActionDropdownComponent, SizePipe],
@@ -56,16 +54,14 @@ export class HomeComponent implements OnInit, OnDestroy {
   constructor(
     private fileService: FileService,
     private searchFilterService: SearchFilterService,
+    private storageService: StorageService,
     private toast: ToastService,
-    private userService: UserService,
     private route: ActivatedRoute,
     private router: Router,
     private routeHelper: RouteHelperService
   ) {}
 
-  /**
-   * Initialize component state and subscribe to route and search changes.
-   */
+ 
   ngOnInit() {
     this.routeSub = this.route.params.subscribe((params) => {
       this.currentFolderId = params['id'] || null;
@@ -85,18 +81,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Tear down active subscriptions when the component is destroyed.
-   */
   ngOnDestroy() {
     this.uploadSub?.unsubscribe();
     this.routeSub?.unsubscribe();
     this.searchSubscription?.unsubscribe();
   }
 
-  /**
-   * Load the appropriate file and folder data for the current route.
-   */
+
   loadData() {
     this.loading = true;
     if (this.currentFolderId) {
@@ -113,9 +104,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.loadFiles();
   }
 
-  /**
-   * Load the currently selected folder's files and subfolders.
-   */
+ 
   loadFolderContents() {
     if (!this.currentFolderId) {
       return;
@@ -142,9 +131,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Load root-level folders for the current user.
-   */
   loadFolders() {
     this.fileService.getUserFolders().subscribe({
       next: (res) => {
@@ -160,9 +146,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Load root-level files for the current user.
-   */
+
   loadFiles() {
     this.fileService.getUserFiles().subscribe({
       next: (res) => {
@@ -182,17 +166,12 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Navigate into a selected folder.
-   * @param folder - Folder selected by the user.
-   */
+ 
   onFolderClick(folder: FolderRecord): void {
     this.router.navigate(['/home', folder._id]);
   }
 
-  /**
-   * Navigate up one level in the folder hierarchy.
-   */
+ 
   goBack(): void {
     if (this.currentFolder?.parentFolder) {
       this.router.navigate(['/home', this.currentFolder.parentFolder]);
@@ -225,9 +204,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     );
   }
 
-  /**
-   * Apply the current search and filter criteria to loaded items.
-   */
+ 
   private applyFilters(): void {
     const searchTerm = this.searchTerm.trim().toLowerCase();
     const typeTerm = this.filterType.trim().toLowerCase();
@@ -242,12 +219,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Convert date filter strings into a comparable date range.
-   * @param from - Start date string.
-   * @param to - End date string.
-   * @returns Object with parsed from/to dates or null values.
-   */
+
   private createDateRange(from: string, to: string): { from: Date | null; to: Date | null } {
     const range = { from: null as Date | null, to: null as Date | null };
 
@@ -264,26 +236,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     return range;
   }
 
-  /**
-   * Determine whether a folder matches the current search criteria.
-   * @param folder - Folder to evaluate.
-   * @param searchTerm - Search term to match against folder name.
-   * @param dateRange - Optional date range for folder creation.
-   */
   private folderMatchesSearch(folder: FolderRecord, searchTerm: string, dateRange: { from: Date | null; to: Date | null }): boolean {
     const hasSearchMatch = !searchTerm || folder.name.toLowerCase().includes(searchTerm);
     const hasDateMatch = this.itemMatchesDate(folder.createdAt, dateRange);
     return hasSearchMatch && hasDateMatch;
   }
 
-  /**
-   * Determine whether a file matches search, type, date, and size filters.
-   * @param file - File item to evaluate.
-   * @param searchTerm - Search term used for name/type matching.
-   * @param typeTerm - File type filter string.
-   * @param dateRange - Date range used for creation filtering.
-   * @param sizeFilter - Size category filter.
-   */
+  
   private fileMatchesSearch(file: FileRecord, searchTerm: string, typeTerm: string, dateRange: { from: Date | null; to: Date | null }, sizeFilter: 'all' | 'small' | 'medium' | 'large'): boolean {
     const extension = this.getFileExtension(file.name);
     const nameMatches = !searchTerm || file.name.toLowerCase().includes(searchTerm);
@@ -297,11 +256,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     return searchMatches && typeFilterMatches && dateMatches && sizeMatches;
   }
 
-  /**
-   * Check whether a date falls inside the current filter range.
-   * @param itemDate - ISO date string of the item.
-   * @param dateRange - Range to compare against.
-   */
   private itemMatchesDate(itemDate: string, dateRange: { from: Date | null; to: Date | null }): boolean {
     const date = new Date(itemDate);
     if (dateRange.from && date < dateRange.from) {
@@ -313,11 +267,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  /**
-   * Check whether a file size passes the selected size filter.
-   * @param size - File size in bytes.
-   * @param filter - Selected size bucket.
-   */
+ 
   private itemMatchesSize(size: number, filter: 'all' | 'small' | 'medium' | 'large'): boolean {
     if (filter === 'all') {
       return true;
@@ -444,7 +394,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         if (res.success) {
           this.toast.success(`${isFile ? 'File' : 'Folder'} deleted successfully.`);
           this.removeDeletedRecord(this.actionDialogRecord!);
-          this.userService.refreshStorageInfo();
+          this.storageService.refreshStorage();
           this.closeActionDialog();
         } else {
           this.actionDialogError = res.message || 'Delete failed.';
@@ -553,7 +503,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 next: (saveRes) => {
                   if (saveRes?.success) {
                     this.toast.success(file.name + ' uploaded successfully!');
-                    this.userService.refreshStorageInfo();
+                    this.storageService.refreshStorage();
                     this.loadData();
                   } else {
                     this.toast.error(saveRes?.message || 'Failed to save file');
@@ -609,10 +559,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Parse selected folder files and extract folder paths.
-   * Each file will know which nested folder it belongs to under the selected root.
-   */
+ 
   private parseFolderFiles(files: File[]): {
     rootName: string;
     fileItems: Array<{ file: File; folderPath: string; relativePath: string }>;
@@ -658,9 +605,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     };
   }
 
-  /**
-   * Upload files one by one so the progress stays easy to follow.
-   */
+
   private uploadFilesSequentially(
     fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
     pathToIdMap: { [path: string]: string }
@@ -674,7 +619,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.folderUploadLoading = false;
         this.folderUploadStatus = '';
         if (successCount > 0) {
-          this.userService.refreshStorageInfo();
+          this.storageService.refreshStorage();
         }
         this.loadData();
         if (failureCount === 0) {
@@ -707,9 +652,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     next();
   }
 
-  /**
-   * Upload a single file to S3 and save its metadata in the correct folder.
-   */
+  
   private uploadFileToFolder(
     file: File,
     folderId: string,
@@ -747,12 +690,6 @@ export class HomeComponent implements OnInit, OnDestroy {
         callback(false);
       }
     });
-  }
-  formatFileSize(bytes: number): string {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   }
 }
 

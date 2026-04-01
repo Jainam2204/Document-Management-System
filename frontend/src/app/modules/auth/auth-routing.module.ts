@@ -8,30 +8,30 @@ import { unauthGuard } from '../../core/guards/unauth/unauth.guard';
 import { authGuard } from '../../core/guards/auth/auth.guard';
 
 const routes: Routes = [
-  {
-    path: 'login',
-    component: LoginComponent,
-    canActivate: [unauthGuard]
-  },
-  {
-    path: 'register',
-    component: RegisterComponent,
-    canActivate: [unauthGuard]
-  },
-  {
-    path: 'verify',
-    component: VerifyComponent,
-    canActivate: [unauthGuard]
-  },
-  {
-    path: 'reset-password',
-    component: ResetPasswordComponent,
-    canActivate: [authGuard]
-  },
+    {
+        path: 'login',
+        component: LoginComponent,
+        canActivate: [unauthGuard]
+    },
+    {
+        path: 'register',
+        component: RegisterComponent,
+        canActivate: [unauthGuard]
+    },
+    {
+        path: 'verify',
+        component: VerifyComponent,
+        canActivate: [unauthGuard]
+    },
+    {
+        path: 'reset-password',
+        component: ResetPasswordComponent,
+        canActivate: [authGuard]
+    },
 ];
 
 @NgModule({
-  imports: [RouterModule.forChild(routes)],
-  exports: [RouterModule]
+    imports: [RouterModule.forChild(routes)],
+    exports: [RouterModule]
 })
 export class AuthRoutingModule { }

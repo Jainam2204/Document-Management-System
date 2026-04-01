@@ -4,10 +4,7 @@ import { AuthService } from '../../../services/auth/auth.service';
 import { ToastService } from '../../../services/toast/toast.service';
 import { catchError, map, of, switchMap, take } from 'rxjs';
 
-/**
- * Guard that blocks navigation when the user's password has expired.
- * It also checks password expiry status and redirects unauthenticated users.
- */
+
 export const passwordExpiryGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);

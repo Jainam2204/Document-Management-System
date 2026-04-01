@@ -84,13 +84,17 @@
 
 .sidebar--collapsed .sidebar-label,
 .sidebar--collapsed .storage-info
-.sidebar--collapsed .sidebar-new 
+/* .sidebar--collapsed .sidebar-new  */
 {
   opacity: 0;
   width: 0;
   overflow: hidden;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.sidebar--collapsed .sidebar-new {
+  display: none;
 }
 
 .sidebar--collapsed .fad__trigger--new {

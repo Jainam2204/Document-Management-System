@@ -6,10 +6,7 @@ import { AuthService } from '../../../services/auth/auth.service';
 import { ToastService } from '../../../services/toast/toast.service';
 import { SearchFilterService } from '../../../services/search-filter/search-filter.service';
 
-/**
- * Application header component.
- * Syncs search input state and emits sidebar toggle events.
- */
+
 @Component({
   selector: 'app-header',
   imports: [CommonModule],
@@ -32,9 +29,6 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
     private router: Router
   ) {}
 
-  /**
-   * Synchronize the header search input with shared filter state.
-   */
   ngAfterViewInit() {
     this.searchSubscription = this.searchFilterService.criteria$.subscribe((criteria) => {
       const inputElement = this.headerSearchInput?.nativeElement;
@@ -44,9 +38,6 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  /**
-   * Clean up the search subscription when the component is destroyed.
-   */
   ngOnDestroy() {
     this.searchSubscription?.unsubscribe();
   }
@@ -81,17 +72,12 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  /**
-   * Emit an event to toggle the main sidebar visibility.
-   */
+ 
   onToggleSidebar() {
     this.toggleSidebar.emit();
   }
 
-  /**
-   * Forward user search input into the shared filter service.
-   * @param value - Current search input value.
-   */
+
   onSearchInput(value: string) {
     this.searchFilterService.setSearchTerm(value);
   }
