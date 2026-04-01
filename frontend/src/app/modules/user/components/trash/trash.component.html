@@ -35,7 +35,7 @@
         <div class="file-card__top">
           <div class="file-card__text">
             <div class="file-card__name">{{ file.name }}</div>
-            <div class="file-card__meta">{{ formatFileSize(file.size) }} • Deleted {{ formatDate(file.deletedAt) }}</div>
+            <div class="file-card__meta">{{ file.size | size }} • Deleted {{ formatDate(file.deletedAt) }}</div>
           </div>
           <div class="file-card__actions">
             <button type="button" class="secondary" (click)="restoreItem(file)">Restore</button>

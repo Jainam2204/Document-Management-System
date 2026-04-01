@@ -181,7 +181,6 @@
                     <div class="file-card__text">
                         <div class="file-card__name">{{ file.name }}</div>
                         <div class="file-card__meta">{{ file.size | size }}</div>
-                        <!-- <div class="file-card__meta">{{ formatFileSize(file.size) }}</div> -->
                     </div>
                     <div class="file-card__actions" (click)="$event.stopPropagation()">
                         <app-file-action-dropdown

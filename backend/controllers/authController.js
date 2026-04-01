@@ -10,11 +10,6 @@ const PASSWORD_EXPIRY_DAYS = Number(process.env.PASSWORD_EXPIRY_DAYS) || 90;
 const PASSWORD_EXPIRY_WARNING_DAYS = Number(process.env.PASSWORD_EXPIRY_WARNING_DAYS) || 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Generate a JWT access token for authenticated users.
- * @param payload - Claims to encode in the access token.
- * @returns A signed access token string.
- */
 const generateAccessToken = (payload) => {
     try {
         const token = jwt.sign(
@@ -30,11 +25,7 @@ const generateAccessToken = (payload) => {
     }
 }
 
-/**
- * Generate a JWT refresh token for session renewal.
- * @param payload - Claims to encode in the refresh token.
- * @returns A signed refresh token string.
- */
+
 const generateRefreshToken = (payload) => {
     try {
         const token = jwt.sign(
@@ -49,11 +40,6 @@ const generateRefreshToken = (payload) => {
     }
 }
 
-/**
- * Build password expiry metadata for a user.
- * @param user - User document used to calculate expiry values.
- * @returns Object containing expiry state and timestamps.
- */
 const buildPasswordExpiryInfo = (user) => {
     const lastUpdatedAt = user.passwordLastUpdatedAt || user.passwordChangedAt || new Date();
     const expiryDuration = user.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS;
@@ -77,12 +63,7 @@ const buildPasswordExpiryInfo = (user) => {
     };
 };
 
-/**
- * Authenticate a user and issue access and refresh tokens.
- * @param req - Express request object containing email and password in body.
- * @param res - Express response object returning auth tokens and expiry data.
- * @returns HTTP 200 on successful login, or HTTP 404/400 on failure.
- */
+
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -131,7 +112,7 @@ export const login = async (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            maxAge: (15 * 60 * 1000),
+            maxAge: 15 * 60 * 1000,
             path: '/'
         });
 
@@ -139,7 +120,7 @@ export const login = async (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            maxAge: (1 * 24 * 60 * 60 * 1000),
+            maxAge: 1 * 24 * 60 * 60 * 1000,
             path: '/'
         });
 
@@ -157,19 +138,14 @@ export const login = async (req, res) => {
         });
     } catch (error) {
         console.error("Error in login : " + error);
-        res.status(404).json({
+        res.status(500).json({
             success: false,
             message: "Error in login"
         });
     }
 };
 
-/**
- * Register a new user account and initialize password expiry metadata.
- * @param req - Express request object containing user details in body.
- * @param res - Express response object returning success or error.
- * @returns HTTP 200 on success or HTTP 404/500 on failure.
- */
+
 export const register = async (req, res) => {
     try {
         const newUser = req.body;
@@ -205,12 +181,7 @@ export const register = async (req, res) => {
     }
 }
 
-/**
- * Return current password expiry status for the authenticated user.
- * @param req - Express request object containing authenticated user on req.user.
- * @param res - Express response object returning expiry details.
- * @returns HTTP 200 with password expiry info or HTTP 404/500 on failure.
- */
+
 export const getPasswordStatus = async (req, res) => {
     try {
         const existingUser = await User.findOne({ email: req.user.email });
@@ -253,12 +224,7 @@ export const getPasswordStatus = async (req, res) => {
     }
 };
 
-/**
- * Change the authenticated user's password and update expiry metadata.
- * @param req - Express request object containing current and new password in body.
- * @param res - Express response object returning success or error response.
- * @returns HTTP 200 with updated expiry info or HTTP 400/500 on failure.
- */
+
 export const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -344,12 +310,7 @@ export const changePassword = async (req, res) => {
     }
 };
 
-/**
- * Verify a user's account using a verification code.
- * @param req - Express request object containing verification code and email in body.
- * @param res - Express response object returning verification result.
- * @returns HTTP 200 on success or HTTP 400/404 on failure.
- */
+
 export const verify = async (req, res) => {
     try {
         const [verificationCode, email] = req.body;
@@ -404,19 +365,14 @@ export const verify = async (req, res) => {
 
     } catch (error) {
         console.error("Error in register : " + error);
-        res.status(404).json({
+        res.status(500).json({
             success: false,
             message: "Error occured while creating user account"
         });
     }
 }
 
-/**
- * Generate access token based on refresh token payload
- * @param req - Express request object containing access or refresh token.
- * @param res - Express response object returning a renewed access token or error.
- * @returns HTTP 200 with access token or HTTP 401/404 on failure.
- */
+
 export const generateExpiredAccessToken = (req, res) => {
     try {
 
@@ -437,7 +393,7 @@ export const generateExpiredAccessToken = (req, res) => {
             httpOnly: false,
             sameSite: "Lax",
             secure: false,
-            maxAge: (1 * 24 * 60 * 60 * 1000),
+            maxAge: 1 * 24 * 60 * 60 * 1000,
             path: '/'
         });
 
@@ -455,20 +411,14 @@ export const generateExpiredAccessToken = (req, res) => {
             secure: false,
             path: '/'
         });
-        res.status(401).json({
+        res.status(500).json({
             success: false,
-            message: "Error occured in refresh"
+            message: "Internal server fail"
         });
     }
 
 }
 
-/**
- * Log out the current user by clearing authentication cookies.
- * @param req - Express request object.
- * @param res - Express response object returning logout confirmation.
- * @returns HTTP 200 on success or HTTP 404 on failure.
- */
 export const logout = (req, res) => {
     try {
         res.clearCookie("accessToken", {

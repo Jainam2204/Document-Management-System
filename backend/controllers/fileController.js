@@ -14,12 +14,7 @@ import { getUniqueFileName, folderNameExists, findExistingFolder } from '../util
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-/**
- * Split an array into smaller chunks.
- * @param array - The source array to split.
- * @param size - Maximum number of items per chunk.
- * @returns An array of array chunks.
- */
+
 const chunkArray = (array, size) => {
     const chunks = [];
     for (let i = 0; i < array.length; i += size) {
@@ -28,12 +23,7 @@ const chunkArray = (array, size) => {
     return chunks;
 };
 
-/**
- * Recursively collect descendant folder IDs for a set of root folders.
- * @param rootFolderIds - The starting folder IDs to traverse.
- * @param ownerId - Owner ID used to restrict results.
- * @returns A flattened list of descendant folder IDs.
- */
+
 const findDescendantFolderIds = async (rootFolderIds, ownerId) => {
     const allFolderIds = [...rootFolderIds];
     let queue = [...rootFolderIds];
@@ -49,12 +39,7 @@ const findDescendantFolderIds = async (rootFolderIds, ownerId) => {
     return allFolderIds;
 };
 
-/**
- * Collect a folder and its ancestor folder IDs.
- * @param folderId - Starting folder ID.
- * @param ownerId - Owner ID used to limit the query scope.
- * @returns An array of folder IDs including the starting folder and its ancestors.
- */
+
 const collectFolderAndAncestorIds = async (folderId, ownerId) => {
     const folderIds = [];
     let currentFolderId = folderId;
@@ -73,14 +58,9 @@ const collectFolderAndAncestorIds = async (folderId, ownerId) => {
     return folderIds;
 };
 
-/**
- * Increment or decrement size totals on a folder and its ancestors.
- * @param folderId - The folder ID to update.
- * @param sizeDelta - The number of bytes to add or subtract.
- * @param ownerId - Owner ID used to limit the update scope.
- */
-const updateFolderSizeAncestors = async (folderId, sizeDelta, ownerId) => {
-    if (!folderId || !sizeDelta) {
+
+const updateFolderSizeAncestors = async (folderId, size, ownerId) => {
+    if (!folderId || !size) {
         return;
     }
 
@@ -91,16 +71,11 @@ const updateFolderSizeAncestors = async (folderId, sizeDelta, ownerId) => {
 
     await Folder.updateMany(
         { _id: { $in: folderIds }, owner: ownerId },
-        { $inc: { size: sizeDelta } }
+        { $inc: { size: size } }
     );
 };
 
-/**
- * Calculate the total active size of a folder subtree.
- * @param folderId - Root folder ID to measure.
- * @param ownerId - Owner ID used to limit the query scope.
- * @returns Total bytes of active files under the subtree.
- */
+
 const getFolderSubtreeSize = async (folderId, ownerId, includeDeleted = false) => {
     const folder = await Folder.findOne({ _id: folderId, owner: ownerId })
         .select('size')
@@ -123,11 +98,7 @@ const getFolderSubtreeSize = async (folderId, ownerId, includeDeleted = false) =
     return files.reduce((sum, file) => sum + (file.size || 0), 0);
 };
 
-/**
- * Remove multiple objects from AWS S3 in batches.
- * @param keys - List of S3 object keys to delete.
- * @returns A promise that resolves after delete operations complete.
- */
+
 const deleteS3Objects = async (keys) => {
     const validKeys = keys.filter(Boolean);
     if (!validKeys.length) return;
@@ -145,11 +116,7 @@ const deleteS3Objects = async (keys) => {
     }
 };
 
-/**
- * Remove a single object from AWS S3.
- * @param key - S3 key for the object to delete.
- * @returns A promise that resolves when the object is deleted.
- */
+
 const deleteS3Object = async (key) => {
     if (!key) return;
     const command = new DeleteObjectCommand({
@@ -159,12 +126,7 @@ const deleteS3Object = async (key) => {
     await s3.send(command);
 };
 
-/**
- * Restore all deleted ancestor folders of a given folder.
- * @param folderId - The folder whose parent chain should be restored.
- * @param ownerId - Owner ID used for folder lookup.
- * @returns A promise that resolves after the parent chain is restored.
- */
+
 const restoreParentFolderChain = async (folderId, ownerId) => {
     const traverseIds = [];
     let currentId = folderId;
@@ -184,11 +146,7 @@ const restoreParentFolderChain = async (folderId, ownerId) => {
     );
 };
 
-/**
- * Permanently delete expired trash items for a user.
- * @param ownerId - User ID whose trash should be cleaned.
- * @returns A promise that resolves when cleanup completes.
- */
+
 const cleanupExpiredTrash = async (ownerId) => {
     const expirationThreshold = new Date(Date.now() - TRASH_RETENTION_MS);
 
@@ -228,12 +186,7 @@ const cleanupExpiredTrash = async (ownerId) => {
     }
 };
 
-/**
- * Soft delete a folder and all of its descendants.
- * @param folderId - Root folder to move to trash.
- * @param ownerId - Owner ID used to limit the update scope.
- * @returns A promise that resolves after the folder tree is marked deleted.
- */
+
 const softDeleteFolderTree = async (folderId, ownerId) => {
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
     const timestamp = new Date();
@@ -258,12 +211,7 @@ const softDeleteFolderTree = async (folderId, ownerId) => {
     );
 };
 
-/**
- * Restore a soft-deleted folder tree from trash.
- * @param folderId - Root folder ID to restore.
- * @param ownerId - Owner ID used to scope the restore.
- * @returns A promise that resolves after the folder tree is restored.
- */
+
 const restoreFolderTree = async (folderId, ownerId) => {
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
 
@@ -287,12 +235,7 @@ const restoreFolderTree = async (folderId, ownerId) => {
     }
 };
 
-/**
- * Permanently delete a file record and its S3 object.
- * @param fileId - File ID to delete.
- * @param ownerId - Owner ID used for file lookup.
- * @returns The deleted file document, or null if not found.
- */
+
 const permanentlyDeleteFileById = async (fileId, ownerId) => {
     const file = await File.findOne({ _id: fileId, owner: ownerId });
     if (!file) {
@@ -314,12 +257,7 @@ const permanentlyDeleteFileById = async (fileId, ownerId) => {
     return file;
 };
 
-/**
- * Permanently delete a folder tree and all associated files.
- * @param folderId - Folder ID to delete.
- * @param ownerId - Owner ID used for folder lookup.
- * @returns The deleted root folder document, or null if not found.
- */
+
 const permanentlyDeleteFolderById = async (folderId, ownerId) => {
     const rootFolder = await Folder.findOne({ _id: folderId, owner: ownerId });
     if (!rootFolder) {
@@ -340,12 +278,7 @@ const permanentlyDeleteFolderById = async (folderId, ownerId) => {
     return rootFolder;
 };
 
-/**
- * Generate a signed S3 upload URL for a new file.
- * @param req - Express request object containing file details in body.
- * @param res - Express response object used to return upload URL.
- * @returns HTTP 200 with uploadUrl and s3Key, or HTTP 400/500 on error.
- */
+
 export const getUploadUrl = async (req, res) => {
     try {
         const { fileName, fileType, fileSize, relativePath } = req.body;
@@ -402,12 +335,7 @@ export const getUploadUrl = async (req, res) => {
     }
 };
 
-/**
- * Persist newly uploaded file metadata to the database.
- * @param req - Express request object containing file metadata in body.
- * @param res - Express response object for success or error response.
- * @returns HTTP 201 with the created file record or HTTP 400/500 on failure.
- */
+
 export const saveFileMetadata = async (req, res) => {
     try {
         const { name, s3Key, size, type, folderId } = req.body;
@@ -459,12 +387,7 @@ export const saveFileMetadata = async (req, res) => {
     }
 };
 
-/**
- * Retrieve user files for the current folder or root location.
- * @param req - Express request object containing optional folderId query.
- * @param res - Express response object used to return file list.
- * @returns HTTP 200 with files array or HTTP 500 on failure.
- */
+
 export const getUserFiles = async (req, res) => {
     try {
         const { folderId } = req.query;
@@ -497,12 +420,7 @@ export const getUserFiles = async (req, res) => {
     }
 };
 
-/**
- * Create a nested folder structure based on a set of paths.
- * @param req - Express request object with rootName and subPaths in body.
- * @param res - Express response object used to return created folders mapping.
- * @returns HTTP 201 with path-to-id map or HTTP 400/500 on failure.
- */
+
 export const createFolderTree = async (req, res) => {
     try {
         const { rootName, subPaths, parentFolderId } = req.body;
@@ -605,12 +523,7 @@ export const createFolderTree = async (req, res) => {
     }
 };
 
-/**
- * Retrieve user folders for the current parent folder or root.
- * @param req - Express request object containing optional parentFolder query.
- * @param res - Express response object used to return folder list.
- * @returns HTTP 200 with folders array or HTTP 500 on failure.
- */
+
 export const getUserFolders = async (req, res) => {
     try {
         const { parentFolder } = req.query;
@@ -643,12 +556,7 @@ export const getUserFolders = async (req, res) => {
     }
 };
 
-/**
- * Retrieve files and subfolders inside a specific folder.
- * @param req - Express request object containing folder id in params.
- * @param res - Express response object returning folder contents.
- * @returns HTTP 200 with folder details or HTTP 400/500 on failure.
- */
+
 export const getFolderContents = async (req, res) => {
     try {
         const { id } = req.params;
@@ -706,12 +614,7 @@ export const getFolderContents = async (req, res) => {
     }
 };
 
-/**
- * Retrieve soft-deleted files and folders for the current user.
- * @param req - Express request object with authenticated user on req.user.
- * @param res - Express response object returning trash contents.
- * @returns HTTP 200 with files and folders in trash or HTTP 500 on failure.
- */
+
 export const getTrashItems = async (req, res) => {
     try {
         await cleanupExpiredTrash(req.user._id);
@@ -748,12 +651,7 @@ export const getTrashItems = async (req, res) => {
     }
 };
 
-/**
- * Restore a soft-deleted file from trash.
- * @param req - Express request object containing file id in params.
- * @param res - Express response object returning operation result.
- * @returns HTTP 200 on success or HTTP 404/500 on failure.
- */
+
 export const restoreFile = async (req, res) => {
     try {
         const file = await File.findOne({
@@ -794,12 +692,7 @@ export const restoreFile = async (req, res) => {
     }
 };
 
-/**
- * Restore a soft-deleted folder and its descendants from trash.
- * @param req - Express request object containing folder id in params.
- * @param res - Express response object returning operation result.
- * @returns HTTP 200 on success or HTTP 404/500 on failure.
- */
+
 export const restoreFolder = async (req, res) => {
     try {
         const folder = await Folder.findOne({
@@ -834,12 +727,7 @@ export const restoreFolder = async (req, res) => {
     }
 };
 
-/**
- * Permanently delete a single file from trash and S3.
- * @param req - Express request object containing file id in params.
- * @param res - Express response object returning operation result.
- * @returns HTTP 200 on success or HTTP 404/500 on failure.
- */
+
 export const permanentlyDeleteFile = async (req, res) => {
     try {
         const file = await File.findOne({
@@ -870,12 +758,7 @@ export const permanentlyDeleteFile = async (req, res) => {
     }
 };
 
-/**
- * Permanently delete a folder tree and associated files from trash.
- * @param req - Express request object containing folder id in params.
- * @param res - Express response object returning operation result.
- * @returns HTTP 200 on success or HTTP 404/500 on failure.
- */
+
 export const permanentlyDeleteFolder = async (req, res) => {
     try {
         const folder = await Folder.findOne({
@@ -906,12 +789,7 @@ export const permanentlyDeleteFolder = async (req, res) => {
     }
 };
 
-/**
- * Create a new folder in the user's directory.
- * @param req - Express request object with folder name and optional parentId.
- * @param res - Express response object returning created folder details.
- * @returns HTTP 201 on success or HTTP 400/500 on failure.
- */
+
 export const createFolder = async (req, res) => {
     try {
         const { name, parentId } = req.body;
@@ -960,12 +838,7 @@ export const createFolder = async (req, res) => {
     }
 };
 
-/**
- * Soft delete a file by updating its delete status.
- * @param req - Express request object containing file id in params.
- * @param res - Express response object returning operation result.
- * @returns HTTP 200 on success or HTTP 404/400 on errors.
- */
+
 export const updateFileDeleteStatus = async (req, res) => {
     try {
         const fileId = req.params.id;
@@ -1005,12 +878,7 @@ export const updateFileDeleteStatus = async (req, res) => {
     }
 }
 
-/**
- * Soft delete a folder tree by updating delete status for all descendants.
- * @param req - Express request object containing folder id in params.
- * @param res - Express response object returning operation result.
- * @returns HTTP 200 on success or HTTP 404/400 on errors.
- */
+
 export const updateFolderDeleteStatus = async (req, res) => {
     try {
         const folderId = req.params.id;
@@ -1043,12 +911,7 @@ export const updateFolderDeleteStatus = async (req, res) => {
     }
 }
 
-/**
- * Rename an existing file within the user's folder.
- * @param req - Express request object containing file id in params and newName in body.
- * @param res - Express response object returning updated file or error.
- * @returns HTTP 200 on success or HTTP 400/404 on error.
- */
+
 export const renameFile = async (req, res) => {
     try {
         const fileId = req.params.id;
@@ -1095,12 +958,7 @@ export const renameFile = async (req, res) => {
     }
 }
 
-/**
- * Rename an existing folder within the user's directory.
- * @param req - Express request object containing folder id in params and newName in body.
- * @param res - Express response object returning updated folder or error.
- * @returns HTTP 200 on success or HTTP 400/404 on failure.
- */
+
 export const renameFolder = async (req, res) => {
     try {
         const folderId = req.params.id;
@@ -1152,12 +1010,7 @@ export const renameFolder = async (req, res) => {
     }
 }
 
-/**
- * Generate a shareable URL for a file or folder.
- * @param req - Express request object containing resource type and id in params and optional expiry in body.
- * @param res - Express response object returning the share link.
- * @returns HTTP 201 with share URL or appropriate error responses.
- */
+
 export const generateShareLink = async (req, res) => {
     try {
         const { expiry } = req.body;
@@ -1244,12 +1097,7 @@ export const generateShareLink = async (req, res) => {
     }
 }
 
-/**
- * Resolve a share token and return the shared resource.
- * @param req - Express request object containing the share token in params.
- * @param res - Express response object returning the shared file or folder listing.
- * @returns HTTP 200 with shared data or HTTP 404/500 on failure.
- */
+
 export const getSharedResource = async (req, res) => {
     try {
         const { token } = req.params;

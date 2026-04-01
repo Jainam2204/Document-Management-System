@@ -43,12 +43,12 @@
           <div class="storage-info">
             <span class="sidebar-label">Used Storage</span>
             <span class="storage-text">
-              {{ storageUsed | size }} of {{ storageTotal | size }} used
+              {{ storageUsed | size }} of {{ storageLimit | size }} used
             </span>
 
             <!-- Progress Bar -->
             <div class="progress-track">
-              <div class="progress-fill" [style.width.%]="storageTotal ? (storageUsed / storageTotal) * 100 : 0">
+              <div class="progress-fill" [style.width.%]="storageLimit ? (storageUsed / storageLimit) * 100 : 0">
               </div>
             </div>
             <!--             
