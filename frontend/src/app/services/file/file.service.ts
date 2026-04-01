@@ -24,6 +24,7 @@ export interface FolderRecord {
     name: string;
     parentFolder: string | null;
     owner: string;
+    size?: number;
     isDeleted: boolean;
     deletedAt?: string;
     createdAt: string;
@@ -113,10 +114,14 @@ export class FileService {
      * @param fileSize - Size of the file in bytes.
      * @returns Observable emitting upload URL payload.
      */
-    getUploadUrl(fileName: string, fileType: string, fileSize: number): Observable<UploadUrlResponse> {
+    getUploadUrl(fileName: string, fileType: string, fileSize: number, relativePath?: string): Observable<UploadUrlResponse> {
+        const body: any = { fileName, fileType, fileSize };
+        if (relativePath) {
+            body.relativePath = relativePath;
+        }
         return this.http.post<UploadUrlResponse>(
             this.url + '/upload-url',
-            { fileName, fileType, fileSize }
+            body
         );
     }
 
@@ -151,10 +156,14 @@ export class FileService {
     }
 
 
-    createFolderTree(rootName: string, subPaths: string[]): Observable<CreateFolderTreeResponse> {
+    createFolderTree(rootName: string, subPaths: string[], parentFolderId?: string | null): Observable<CreateFolderTreeResponse> {
+        const body: any = { rootName, subPaths };
+        if (parentFolderId) {
+            body.parentFolderId = parentFolderId;
+        }
         return this.http.post<CreateFolderTreeResponse>(
             this.url + '/create-folder-tree',
-            { rootName, subPaths }
+            body
         );
     }
 

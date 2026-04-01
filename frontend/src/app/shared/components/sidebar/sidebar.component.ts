@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -8,7 +8,7 @@ import { AuthService } from '../../../services/auth/auth.service';
 import { RouteHelperService } from '../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../../../modules/user/components/file-action-dropdown/file-action-dropdown.component';
 import { BackendResponse } from '../../models/BackendResponse';
-import { concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finalize } from 'rxjs';
+import { Subscription, concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finalize } from 'rxjs';
 import { SizePipe } from '../../pipes/size/size.pipe';
 import { UserService } from '../../../services/user/user.service';
 
@@ -18,7 +18,7 @@ import { UserService } from '../../../services/user/user.service';
     templateUrl: './sidebar.component.html',
     styleUrls: ['./sidebar.component.css']
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnDestroy {
     @Input() collapsed = false;
 
     @ViewChild('fileInput') fileInput!: ElementRef;
@@ -27,6 +27,7 @@ export class SidebarComponent {
     activeItem = 'files';
     storageUsed = 0;
     storageTotal = 0;
+    private storageSubscription?: Subscription;
     isMobile = false;
     showNewMenu = false;
     uploading = false;
@@ -57,13 +58,12 @@ export class SidebarComponent {
     }
 
     getStorage() {
-        this.userService.getStorageInfo().subscribe((res: any) => {
-            if (res.success) {
-                this.storageUsed = res.storageUsed;
-                this.storageTotal = res.storageLimit;
-                console.log(res);
-            }
+        this.storageSubscription = this.userService.storage$.subscribe((storage) => {
+            this.storageUsed = storage.storageUsed;
+            this.storageTotal = storage.storageLimit;
         });
+
+        this.userService.refreshStorageInfo();
     }
 
     getFolderId() {
@@ -539,10 +539,159 @@ export class SidebarComponent {
         });
     }
 
-    private uploadFolder(files: File[], parentId: string | null) {
-        for (const file of files) {
-            this.uploadFile(file, parentId);
+    private uploadFolder(files: File[], parentId: string | null): void {
+        if (!files || files.length === 0) {
+            this.toast.error('No folder selected.');
+            return;
         }
+
+        const parsed = this.parseFolderFiles(files);
+        if (!parsed) {
+            this.toast.error('Unable to read folder structure from selected files.');
+            return;
+        }
+
+        this.uploading = true;
+        this.toast.warning(`Uploading folder "${parsed.rootName}"...`);
+
+        this.fileService.createFolderTree(parsed.rootName, parsed.subPaths, parentId).subscribe({
+            next: (res) => {
+                if (!res?.success) {
+                    this.toast.error(res?.message || 'Failed to create folder tree.');
+                    this.uploading = false;
+                    return;
+                }
+
+                this.uploadFilesSequentially(parsed.fileItems, res.pathToIdMap);
+            },
+            error: (err) => {
+                this.toast.error(err?.error?.message || 'Folder upload failed.');
+                this.uploading = false;
+            }
+        });
+    }
+
+    private parseFolderFiles(files: File[]): {
+        rootName: string;
+        fileItems: Array<{ file: File; folderPath: string; relativePath: string }>;
+        subPaths: string[];
+    } | null {
+        const fileItems: Array<{ file: File; folderPath: string; relativePath: string }> = [];
+        const folderSet = new Set<string>();
+
+        const firstPath = (files[0] as any).webkitRelativePath || '';
+        const rootName = firstPath.replace(/\\/g, '/').split('/')[0];
+        if (!rootName) {
+            return null;
+        }
+
+        for (const file of files) {
+            const relativePath = ((file as any).webkitRelativePath || '').replace(/\\/g, '/');
+            const parts = relativePath.split('/');
+            if (parts.length < 2) {
+                continue;
+            }
+
+            const folderPath = parts.length > 2 ? parts.slice(1, -1).join('/') : '';
+            const relativeDirPath = parts.slice(0, -1).join('/');
+            fileItems.push({ file, folderPath, relativePath: relativeDirPath });
+
+            for (let i = 2; i < parts.length; i++) {
+                const pathPart = parts.slice(1, i).join('/');
+                if (pathPart) {
+                    folderSet.add(pathPart);
+                }
+            }
+        }
+
+        return {
+            rootName,
+            fileItems,
+            subPaths: Array.from(folderSet),
+        };
+    }
+
+    private uploadFilesSequentially(
+        fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
+        pathToIdMap: { [path: string]: string }
+    ): void {
+        let index = 0;
+        let successCount = 0;
+        let failureCount = 0;
+
+        const next = () => {
+            if (index >= fileItems.length) {
+                this.uploading = false;
+                this.fileService.fileUploaded$.next();
+                if (failureCount === 0) {
+                    this.toast.success(`Uploaded ${successCount} files successfully.`);
+                } else {
+                    this.toast.warning(`Uploaded ${successCount} files, ${failureCount} failed.`);
+                }
+                return;
+            }
+
+            const item = fileItems[index++];
+            const folderId = pathToIdMap[item.folderPath] || pathToIdMap[''];
+            if (!folderId) {
+                failureCount += 1;
+                next();
+                return;
+            }
+
+            this.toast.warning(`Uploading ${item.file.name} (${index}/${fileItems.length})...`);
+            this.uploadFileToFolder(item.file, folderId, item.relativePath, (ok) => {
+                if (ok) {
+                    successCount += 1;
+                } else {
+                    failureCount += 1;
+                }
+                next();
+            });
+        };
+
+        next();
+    }
+
+    private uploadFileToFolder(
+        file: File,
+        folderId: string,
+        relativePath: string,
+        callback: (success: boolean) => void
+    ): void {
+        this.fileService.getUploadUrl(file.name, file.type, file.size, relativePath).subscribe({
+            next: (urlRes) => {
+                if (!urlRes?.success) {
+                    callback(false);
+                    return;
+                }
+
+                this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
+                    next: (event) => {
+                        if (event.type === HttpEventType.Response) {
+                            this.fileService.saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId).subscribe({
+                                next: (saveRes) => {
+                                    callback(saveRes?.success ?? false);
+                                },
+                                error: () => {
+                                    callback(false);
+                                }
+                            });
+                        }
+                    },
+                    error: () => {
+                        callback(false);
+                    }
+                });
+            },
+            error: () => {
+                callback(false);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.storageSubscription?.unsubscribe();
     }
 
     onLogout() {

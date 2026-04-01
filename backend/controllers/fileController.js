@@ -50,6 +50,80 @@ const findDescendantFolderIds = async (rootFolderIds, ownerId) => {
 };
 
 /**
+ * Collect a folder and its ancestor folder IDs.
+ * @param folderId - Starting folder ID.
+ * @param ownerId - Owner ID used to limit the query scope.
+ * @returns An array of folder IDs including the starting folder and its ancestors.
+ */
+const collectFolderAndAncestorIds = async (folderId, ownerId) => {
+    const folderIds = [];
+    let currentFolderId = folderId;
+
+    while (currentFolderId) {
+        const folder = await Folder.findOne({ _id: currentFolderId, owner: ownerId })
+            .select('parentFolder')
+            .lean();
+
+        if (!folder) break;
+
+        folderIds.push(currentFolderId);
+        currentFolderId = folder.parentFolder;
+    }
+
+    return folderIds;
+};
+
+/**
+ * Increment or decrement size totals on a folder and its ancestors.
+ * @param folderId - The folder ID to update.
+ * @param sizeDelta - The number of bytes to add or subtract.
+ * @param ownerId - Owner ID used to limit the update scope.
+ */
+const updateFolderSizeAncestors = async (folderId, sizeDelta, ownerId) => {
+    if (!folderId || !sizeDelta) {
+        return;
+    }
+
+    const folderIds = await collectFolderAndAncestorIds(folderId, ownerId);
+    if (!folderIds.length) {
+        return;
+    }
+
+    await Folder.updateMany(
+        { _id: { $in: folderIds }, owner: ownerId },
+        { $inc: { size: sizeDelta } }
+    );
+};
+
+/**
+ * Calculate the total active size of a folder subtree.
+ * @param folderId - Root folder ID to measure.
+ * @param ownerId - Owner ID used to limit the query scope.
+ * @returns Total bytes of active files under the subtree.
+ */
+const getFolderSubtreeSize = async (folderId, ownerId, includeDeleted = false) => {
+    const folder = await Folder.findOne({ _id: folderId, owner: ownerId })
+        .select('size')
+        .lean();
+
+    if (folder && typeof folder.size === 'number') {
+        return folder.size;
+    }
+
+    const folderIds = await findDescendantFolderIds([folderId], ownerId);
+    const query = { owner: ownerId, folder: { $in: folderIds } };
+    if (!includeDeleted) {
+        query.isDeleted = false;
+    }
+
+    const files = await File.find(query)
+        .select('size')
+        .lean();
+
+    return files.reduce((sum, file) => sum + (file.size || 0), 0);
+};
+
+/**
  * Remove multiple objects from AWS S3 in batches.
  * @param keys - List of S3 object keys to delete.
  * @returns A promise that resolves after delete operations complete.
@@ -164,6 +238,15 @@ const softDeleteFolderTree = async (folderId, ownerId) => {
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
     const timestamp = new Date();
 
+    const rootFolder = await Folder.findOne({ _id: folderId, owner: ownerId, isDeleted: false })
+        .select('size parentFolder')
+        .lean();
+
+    if (rootFolder && rootFolder.parentFolder) {
+        const subtreeSize = await getFolderSubtreeSize(folderId, ownerId);
+        await updateFolderSizeAncestors(rootFolder.parentFolder, -subtreeSize, ownerId);
+    }
+
     await Folder.updateMany(
         { _id: { $in: folderIds }, owner: ownerId, isDeleted: false },
         { $set: { isDeleted: true, deletedAt: timestamp } }
@@ -184,6 +267,10 @@ const softDeleteFolderTree = async (folderId, ownerId) => {
 const restoreFolderTree = async (folderId, ownerId) => {
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
 
+    const rootFolder = await Folder.findOne({ _id: folderId, owner: ownerId, isDeleted: true })
+        .select('size parentFolder')
+        .lean();
+
     await Folder.updateMany(
         { _id: { $in: folderIds }, owner: ownerId, isDeleted: true },
         { $set: { isDeleted: false, deletedAt: null } }
@@ -193,6 +280,11 @@ const restoreFolderTree = async (folderId, ownerId) => {
         { owner: ownerId, folder: { $in: folderIds }, isDeleted: true },
         { $set: { isDeleted: false, deletedAt: null } }
     );
+
+    if (rootFolder && rootFolder.parentFolder) {
+        const subtreeSize = await getFolderSubtreeSize(folderId, ownerId, true);
+        await updateFolderSizeAncestors(rootFolder.parentFolder, subtreeSize, ownerId);
+    }
 };
 
 /**
@@ -211,6 +303,10 @@ const permanentlyDeleteFileById = async (fileId, ownerId) => {
         await deleteS3Object(file.s3Key);
     } catch (error) {
         console.error('S3 object delete failed for file:', fileId, error);
+    }
+
+    if (file.folder && !file.isDeleted) {
+        await updateFolderSizeAncestors(file.folder, -(file.size || 0), ownerId);
     }
 
     await File.deleteOne({ _id: fileId, owner: ownerId });
@@ -252,7 +348,7 @@ const permanentlyDeleteFolderById = async (folderId, ownerId) => {
  */
 export const getUploadUrl = async (req, res) => {
     try {
-        const { fileName, fileType, fileSize } = req.body;
+        const { fileName, fileType, fileSize, relativePath } = req.body;
 
         if (!fileName || !fileType || !fileSize) {
             return res.status(400).json({
@@ -271,7 +367,18 @@ export const getUploadUrl = async (req, res) => {
             });
         }
 
-        const s3Key = `uploads/${user._id}/${uuidv4()}-${fileName}`;
+        // Normalize relative path and build a folder-style S3 key.
+        let normalizedPath = '';
+        if (relativePath && typeof relativePath === 'string') {
+            normalizedPath = relativePath
+    .replace(/\\/g, '/')
+    .replace(/(^\/+|\/+$)/g, '');
+            if (normalizedPath) {
+                normalizedPath = `${normalizedPath}/`;
+            }
+        }
+
+        const s3Key = `uploads/${user._id}/${normalizedPath}${uuidv4()}-${fileName}`;
 
         const command = new PutObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
@@ -334,6 +441,10 @@ export const saveFileMetadata = async (req, res) => {
             $inc: { storageUsed: size },
         });
 
+        if (folderId) {
+            await updateFolderSizeAncestors(folderId, size, req.user._id);
+        }
+
         res.status(201).json({
             success: true,
             message: 'File saved successfully',
@@ -394,7 +505,7 @@ export const getUserFiles = async (req, res) => {
  */
 export const createFolderTree = async (req, res) => {
     try {
-        const { rootName, subPaths } = req.body;
+        const { rootName, subPaths, parentFolderId } = req.body;
 
         if (!rootName) {
             return res.status(400).json({
@@ -404,10 +515,21 @@ export const createFolderTree = async (req, res) => {
         }
 
         const userId = req.user._id;
+        let parentFolder = null;
+
+        if (parentFolderId) {
+            parentFolder = await Folder.findOne({ _id: parentFolderId, owner: userId, isDeleted: false });
+            if (!parentFolder) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid parent folder ID',
+                });
+            }
+        }
 
         const pathToIdMap = {};
 
-        let rootFolder = await findExistingFolder(userId, null, rootName);
+        let rootFolder = await findExistingFolder(userId, parentFolder ? parentFolder._id : null, rootName);
 
         if (!rootFolder) {
             const rootCounter = await Counter.findOneAndUpdate(
@@ -419,7 +541,7 @@ export const createFolderTree = async (req, res) => {
             rootFolder = await Folder.create({
                 id: rootCounter.count,
                 name: rootName,
-                parentFolder: null,
+                parentFolder: parentFolder ? parentFolder._id : null,
                 owner: userId,
             });
         }
@@ -570,6 +692,7 @@ export const getFolderContents = async (req, res) => {
                 id: folder.id,
                 name: folder.name,
                 parentFolder: folder.parentFolder,
+                size: folder.size || 0,
             },
             files,
             subfolders,
@@ -653,6 +776,10 @@ export const restoreFile = async (req, res) => {
         file.isDeleted = false;
         file.deletedAt = null;
         await file.save();
+
+        if (file.folder) {
+            await updateFolderSizeAncestors(file.folder, file.size || 0, req.user._id);
+        }
 
         return res.status(200).json({
             success: true,
@@ -858,6 +985,10 @@ export const updateFileDeleteStatus = async (req, res) => {
 
         file.isDeleted = true;
         file.deletedAt = new Date();
+
+        if (file.folder) {
+            await updateFolderSizeAncestors(file.folder, -(file.size || 0), req.user._id);
+        }
 
         await file.save();
 
