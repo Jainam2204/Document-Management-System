@@ -1,64 +1,48 @@
-<!-- Admin Panel Page -->
 <div class="admin-page">
 
-  <!-- Header bar -->
-  <div class="admin-header">
-    <h1 class="admin-title">⚙️ Admin Panel</h1>
-    <button class="logout-btn" (click)="logout()">Logout</button>
-  </div>
-
-  <div class="admin-body">
-    <h2 class="section-title">User Management</h2>
-    <p class="section-subtitle">Check or uncheck the Admin box to assign or remove admin role.</p>
-
-    <!-- Loading message while users are being fetched -->
-    <p class="loading-msg" *ngIf="loading">Loading users...</p>
-
-    <!-- Error message if something went wrong -->
-    <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
-
-    <!-- Users Table — shown only when users are loaded -->
-    <div class="table-wrapper" *ngIf="!loading && users.length > 0">
-      <table class="users-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Storage Used</th>
-            <th>Admin</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Loop through each user and display a row -->
-          <tr *ngFor="let user of users; let i = index">
-            <td>{{ i + 1 }}</td>
-            <td>{{ user.name }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ formatStorage(user.storageUsed) }}</td>
-            <td>
-              <!--
-                Admin Checkbox:
-                - [checked]="user.isAdmin" → shows current admin status
-                - (change)="toggleAdmin(user, $event)" → called when checkbox is clicked
-              -->
-              <input
-                type="checkbox"
-                class="admin-checkbox"
-                [checked]="user.isAdmin"
-                (change)="toggleAdmin(user, $event)"
-                [title]="user.isAdmin ? 'Remove admin role' : 'Assign admin role'"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="admin-header">
+        <h1 class="admin-title">Admin Panel</h1>
+        <button class="logout-btn" (click)="logout()">Logout</button>
     </div>
 
-    <!-- Empty state — shown when there are no users -->
-    <p class="empty-msg" *ngIf="!loading && users.length === 0 && !errorMessage">
-      No users found.
-    </p>
+    <div class="admin-body">
+        <h2 class="section-title">User Management</h2>
+        <p class="section-subtitle">Check or uncheck the Admin box to assign or remove admin role.</p>
 
-  </div>
+        <p class="loading-msg" *ngIf="loading">Loading users...</p>
+
+        <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+        <div class="table-wrapper" *ngIf="!loading && users.length > 0">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Storage Used</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let user of users; let i = index">
+                        <td>{{ i + 1 }}</td>
+                        <td>{{ user.name }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.storageUsed | size }}</td>
+                        <td>
+                            <input type="checkbox" class="admin-checkbox" [checked]="user.isAdmin"
+                                (change)="toggleAdmin(user, $event)"
+                                [title]="user.isAdmin ? 'Remove admin role' : 'Assign admin role'" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="empty-msg" *ngIf="!loading && users.length === 0 && !errorMessage">
+            No users found.
+        </p>
+
+    </div>
 </div>

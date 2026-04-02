@@ -26,12 +26,12 @@ export class TrashComponent implements OnInit {
     private toast: ToastService
   ) {}
 
-  ngOnInit(): void {
+  ngOnInit()  {
     this.loadTrashItems();
   }
 
 
-  loadTrashItems(): void {
+  loadTrashItems()  {
     this.loading = true;
     this.fileService.getTrashItems().subscribe({
       next: (res) => {
@@ -53,14 +53,14 @@ export class TrashComponent implements OnInit {
     return 's3Key' in record;
   }
 
-  openPermanentDeleteDialog(record: FolderRecord | FileRecord): void {
+  openPermanentDeleteDialog(record: FolderRecord | FileRecord)  {
     this.actionDialogMode = 'permanent';
     this.actionDialogRecord = record;
     this.actionDialogLoading = false;
     this.actionDialogError = '';
   }
 
-  closeActionDialog(): void {
+  closeActionDialog()  {
     this.actionDialogMode = null;
     this.actionDialogRecord = null;
     this.actionDialogError = '';
@@ -68,7 +68,7 @@ export class TrashComponent implements OnInit {
   }
 
  
-  restoreItem(record: FolderRecord | FileRecord): void {
+  restoreItem(record: FolderRecord | FileRecord)  {
     const request$ = this.isFileRecord(record)
       ? this.fileService.restoreFile(record._id)
       : this.fileService.restoreFolder(record._id);
@@ -89,7 +89,7 @@ export class TrashComponent implements OnInit {
     });
   }
 
-  confirmPermanentDelete(): void {
+  confirmPermanentDelete()  {
     const record = this.actionDialogRecord;
     if (!record) {
       return;

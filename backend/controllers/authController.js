@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Counter from '../models/Counter.js';
 import sendEmail from '../utils/sendEmail.js';
+import ActivityLog from '../models/ActivityLog.js';
 
 const PASSWORD_EXPIRY_DAYS = Number(process.env.PASSWORD_EXPIRY_DAYS) || 90;
 
@@ -75,7 +76,7 @@ export const login = async (req, res) => {
         await sendEmail({
             to: email,
             subject: "Your Verification Code",
-            html: `<h2>Your OTP is: ${verificationCode}</h2>`,
+            html: `<h2>Your verification code is: ${verificationCode}</h2>`,
         });
 
         res.status(200).json({
@@ -279,6 +280,11 @@ export const verify = async (req, res) => {
             secure: false,
             maxAge: (1 * 24 * 60 * 60 * 1000),
             path: '/'
+        });
+
+        await ActivityLog.create({
+            user: existingUser._id,
+            action: "LOGIN"
         });
 
         return res.status(200).json({
