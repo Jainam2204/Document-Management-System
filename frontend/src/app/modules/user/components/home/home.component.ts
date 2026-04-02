@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpEventType } from '@angular/common/http';
 import { Subscription, take } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FileService, FileRecord, FolderRecord } from '../../../../services/file/file.service';
@@ -12,6 +11,7 @@ import { RouteHelperService } from '../../../../services/route-helper/route-help
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
 import { StorageService } from '../../../../services/storage/storage.service';
+import { getFileIcon } from '../../../../shared/utils/getFileIcon';
 
 
 @Component({
@@ -36,8 +36,12 @@ export class HomeComponent implements OnInit, OnDestroy {
     shareExpiryDate = '';
     shareExpiryTime = '';
     shareUrl = '';
+    shareEmails: string[] = [];  
+    shareEmailInput = '';        
+    shareSuccessMessage = '';    
     folderUploadLoading = false;
     folderUploadStatus = '';
+    folderUploadCancelled = false;
 
     allFolders: FolderRecord[] = [];
     allFiles: FileRecord[] = [];
@@ -349,6 +353,9 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.actionDialogError = '';
         this.actionDialogLoading = false;
         this.shareUrl = '';
+        this.shareEmails = [];      
+        this.shareEmailInput = '';  
+        this.shareSuccessMessage = ''; 
     }
 
     submitRename()  {
@@ -421,31 +428,67 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     submitShare()  {
-        if (!this.actionDialogRecord) {
+        if (!this.actionDialogRecord || this.shareEmails.length === 0) {
             return;
         }
 
         this.actionDialogLoading = true;
-        const resourceType = this.isFileRecord(this.actionDialogRecord) ? 'file' : 'folder';
-        const expiry = this.shareExpiryDate && this.shareExpiryTime
-            ? `${this.shareExpiryDate}T${this.shareExpiryTime}:00`
-            : undefined;
+        this.actionDialogError = '';
+        this.shareSuccessMessage = '';
 
-        this.fileService.createShareLink(resourceType, this.actionDialogRecord._id, expiry).subscribe({
+        const resourceType = this.isFileRecord(this.actionDialogRecord) ? 'file' : 'folder';
+        const expiry = this.shareExpiryDate ? new Date(this.shareExpiryDate).toISOString() : undefined;
+
+        this.fileService.shareWithUsers(resourceType, this.actionDialogRecord._id, this.shareEmails, expiry).subscribe({
             next: (res) => {
                 this.actionDialogLoading = false;
                 if (res.success) {
-                    this.shareUrl = res.url;
-                    this.toast.success('Share link created.');
+                    const sharedCount = res.sharedCount || this.shareEmails.length;
+                    this.shareSuccessMessage = `Successfully shared with ${sharedCount} user(s)!`;
+                    this.toast.success(`Shared with ${sharedCount} user(s)`);
+
+                    this.shareEmails = [];
+                    this.shareEmailInput = '';
                 } else {
-                    this.actionDialogError = res.message || 'Unable to create share link.';
+                    this.actionDialogError = res.message || 'Failed to share.';
                 }
             },
             error: (err) => {
                 this.actionDialogLoading = false;
-                this.actionDialogError = err?.error?.message || 'Unable to create share link.';
+                this.actionDialogError = err?.error?.message || 'Failed to share.';
             }
         });
+    }
+
+    addEmail(event?: Event) {
+        if (event) {
+            event.preventDefault(); 
+        }
+
+        const email = this.shareEmailInput?.trim();
+        if (!email) {
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            this.actionDialogError = 'Please enter a valid email address.';
+            return;
+        }
+
+        if (this.shareEmails.includes(email.toLowerCase())) {
+            this.actionDialogError = 'This email is already added.';
+            return;
+        }
+
+        this.shareEmails.push(email.toLowerCase());
+        this.shareEmailInput = '';
+        this.actionDialogError = '';
+    }
+
+    removeEmail(index: number) {
+        this.shareEmails.splice(index, 1);
+        this.actionDialogError = ''; 
     }
 
     copyShareUrl()  {
@@ -485,11 +528,21 @@ export class HomeComponent implements OnInit, OnDestroy {
         return 's3Key' in record;
     }
 
+    getItemIcon(item: FolderRecord | FileRecord): string {
+        const isFolder = !this.isFileRecord(item);
+        return getFileIcon(item.name, isFolder);
+    }
+
     private createFolder(name: string, parentId: string | null)  {
         this.fileService.createFolder(name, parentId || undefined).subscribe({
             next: (res) => {
-                if (res?.success) {
+                if (res?.success && res?.folder) {
+                   
+                    this.allFolders.push(res.folder);
+                    this.applyFilters();
+
                     this.toast.success('Folder created successfully');
+                    
                     this.loadData();
                 } else {
                     this.toast.error(res?.message || 'Failed to create folder');
@@ -501,40 +554,24 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    private uploadFile(file: File, parentId: string | null)  {
+    private uploadFile(file: File, parentId: string | null) {
         this.toast.warning('Uploading ' + file.name + '...');
-        this.fileService.getUploadUrl(file.name, file.type, file.size).subscribe({
-            next: (urlRes) => {
-                if (!urlRes?.success) {
-                    this.toast.error(urlRes?.message || 'Failed to get upload URL');
-                    return;
+        this.fileService.uploadFile(file, parentId).subscribe({
+            next: (res) => {
+                if (res?.success && res?.file) {
+                    this.allFiles.push(res.file);
+                    this.applyFilters();
+
+                    this.toast.success(file.name + ' uploaded successfully!');
+                    this.storageService.refreshStorage();
+                   
+                    this.loadData();
+                } else {
+                    this.toast.error(res?.message || 'Failed to upload file');
                 }
-                this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
-                    next: (event) => {
-                        if (event.type === HttpEventType.Response) {
-                            this.fileService.saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, parentId!).subscribe({
-                                next: (saveRes) => {
-                                    if (saveRes?.success) {
-                                        this.toast.success(file.name + ' uploaded successfully!');
-                                        this.storageService.refreshStorage();
-                                        this.loadData();
-                                    } else {
-                                        this.toast.error(saveRes?.message || 'Failed to save file');
-                                    }
-                                },
-                                error: (err) => {
-                                    this.toast.error('Failed to save file');
-                                }
-                            });
-                        }
-                    },
-                    error: (err) => {
-                        this.toast.error('Failed to upload file to S3');
-                    }
-                });
             },
             error: (err) => {
-                this.toast.error('Failed to get upload URL');
+                this.toast.error(err?.error?.message || 'Failed to upload file');
             }
         });
     }
@@ -563,7 +600,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    private uploadFolder(files: File[], parentId: string | null)  {
+    private uploadFolder(files: File[], parentId: string | null) {
         if (!files || files.length === 0) {
             this.toast.error('No folder selected.');
             return;
@@ -575,6 +612,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             return;
         }
 
+        this.folderUploadCancelled = false;
         this.folderUploadLoading = true;
         this.folderUploadStatus = `Creating folder tree for ${parsed.rootName}...`;
 
@@ -640,15 +678,29 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
 
+    cancelFolderUpload() {
+        this.folderUploadCancelled = true;
+    }
+
     private uploadFilesSequentially(
         fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
         pathToIdMap: { [path: string]: string }
-    )  {
+    ) {
         let index = 0;
         let successCount = 0;
         let failureCount = 0;
 
         const next = () => {
+            if (this.folderUploadCancelled) {
+                this.folderUploadLoading = false;
+                this.folderUploadStatus = '';
+                this.folderUploadCancelled = false;
+                this.storageService.refreshStorage();
+                this.loadData();
+                this.toast.warning(`Upload cancelled. ${successCount} file(s) were saved.`);
+                return;
+            }
+
             if (index >= fileItems.length) {
                 this.folderUploadLoading = false;
                 this.folderUploadStatus = '';
@@ -673,8 +725,8 @@ export class HomeComponent implements OnInit, OnDestroy {
             }
 
             this.folderUploadStatus = `Uploading ${item.file.name} (${index}/${fileItems.length})...`;
-            this.uploadFileToFolder(item.file, folderId, item.relativePath, (ok) => {
-                if (ok) {
+            this.uploadFileToFolder(item.file, folderId, item.relativePath, (uploadedFile) => {
+                if (uploadedFile) {
                     successCount += 1;
                 } else {
                     failureCount += 1;
@@ -691,37 +743,20 @@ export class HomeComponent implements OnInit, OnDestroy {
         file: File,
         folderId: string,
         relativePath: string,
-        callback: (success: boolean) => void
-    )  {
-        this.fileService.getUploadUrl(file.name, file.type, file.size, relativePath).subscribe({
-            next: (urlRes) => {
-                if (!urlRes?.success) {
-                    callback(false);
-                    return;
+        callback: (uploadedFile: any) => void
+    ) {
+        this.fileService.uploadFile(file, folderId, relativePath).subscribe({
+            next: (res) => {
+                if (res?.success && res?.file) {
+                    this.allFiles.push(res.file);
+                    this.applyFilters();
+                    callback(res.file);
+                } else {
+                    callback(null);
                 }
-
-                this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
-                    next: (event) => {
-                        if (event.type === HttpEventType.Response) {
-                            this.fileService
-                                .saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId)
-                                .subscribe({
-                                    next: (saveRes) => {
-                                        callback(saveRes?.success ?? false);
-                                    },
-                                    error: () => {
-                                        callback(false);
-                                    }
-                                });
-                        }
-                    },
-                    error: () => {
-                        callback(false);
-                    }
-                });
             },
             error: () => {
-                callback(false);
+                callback(null);
             }
         });
     }

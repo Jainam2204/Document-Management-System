@@ -94,18 +94,42 @@
         </div>
 
         <div *ngIf="actionDialogMode === 'share'">
-          <p>Generate a shareable link for "{{ actionDialogRecord?.name }}".</p>
+          <p>Share "{{ actionDialogRecord?.name }}" with other users.</p>
+
+          <!-- Email input section -->
+          <label for="share-email">Email addresses (press Enter to add)</label>
+          <input
+            id="share-email"
+            type="email"
+            class="dialog__input"
+            [(ngModel)]="shareEmailInput"
+            (keydown.enter)="addEmail($event)"
+            placeholder="Enter email address"
+          />
+          <button
+            type="button"
+            class="chip chip--add"
+            (click)="addEmail()"
+            [disabled]="!shareEmailInput?.trim()"
+          >
+            Add Email
+          </button>
+
+          <!-- Email chips/tags -->
+          <div class="email-chips" *ngIf="shareEmails.length > 0">
+            <div class="chip" *ngFor="let email of shareEmails; let i = index">
+              {{ email }}
+              <button type="button" class="chip__remove" (click)="removeEmail(i)">×</button>
+            </div>
+          </div>
+
+          <!-- Expiry date (optional) -->
           <label for="share-date">Expiry date (optional)</label>
           <input id="share-date" type="date" class="dialog__input" [(ngModel)]="shareExpiryDate" />
-          <label for="share-time">Expiry time (optional)</label>
-          <input id="share-time" type="time" class="dialog__input" [(ngModel)]="shareExpiryTime" />
 
-          <div *ngIf="shareUrl" style="margin-top: 12px;">
-            <label>Share link</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="text" class="dialog__input" [value]="shareUrl" readonly />
-              <button type="button" class="primary" (click)="copyShareUrl()">Copy</button>
-            </div>
+          <!-- Success message when shared -->
+          <div *ngIf="shareSuccessMessage" class="share-success" style="margin-top: 12px; color: #1e8e3e; font-weight: 500;">
+            {{ shareSuccessMessage }}
           </div>
         </div>
 
@@ -136,16 +160,23 @@
             type="button"
             class="primary"
             (click)="submitShare()"
-            [disabled]="actionDialogLoading || shareUrl"
+            [disabled]="actionDialogLoading || shareEmails.length === 0"
           >
-            Generate
+            Share
           </button>
         </div>
       </div>
     </div>
 
     <div class="drive__loading" *ngIf="loading">Loading files...</div>
-    <div class="drive__loading" *ngIf="folderUploadLoading">{{ folderUploadStatus || 'Uploading folder...' }}</div>
+
+    <!-- Folder upload progress bar with Cancel button -->
+    <div class="folder-upload-bar" *ngIf="folderUploadLoading">
+        <span class="folder-upload-bar__text">{{ folderUploadStatus || 'Uploading folder...' }}</span>
+        <button type="button" class="folder-upload-bar__cancel" (click)="cancelFolderUpload()">
+            Cancel
+        </button>
+    </div>
 
     <div class="drive__section" *ngIf="folders.length > 0">
         <div class="drive__section-title">Folders</div>
@@ -153,7 +184,12 @@
         <div class="drive__grid drive__grid--folders">
             <div class="folder-card" *ngFor="let folder of folders" (click)="onFolderClick(folder)">
                 <div class="folder-card__left">
-                    <span class="folder-card__emoji" aria-hidden="true">📁</span>
+                    <!-- SVG icon for folder -->
+                    <img 
+                        [src]="getItemIcon(folder)"
+                        alt="Folder icon"
+                        class="folder-card__icon"
+                    />
                     <div>
                         <div class="folder-card__name-text">{{ folder.name }}</div>
                         <div class="folder-card__meta">{{ (folder.size || 0) | size }}</div>
@@ -178,6 +214,12 @@
         <div class="drive__grid drive__grid--files">
             <div class="file-card" *ngFor="let file of files">
                 <div class="file-card__top">
+                    <!-- SVG icon for file type -->
+                    <img 
+                        [src]="getItemIcon(file)"
+                        alt="File icon"
+                        class="file-card__icon"
+                    />
                     <div class="file-card__text">
                         <div class="file-card__name">{{ file.name }}</div>
                         <div class="file-card__meta">{{ file.size | size }}</div>

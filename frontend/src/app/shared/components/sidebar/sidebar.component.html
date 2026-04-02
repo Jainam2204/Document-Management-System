@@ -29,6 +29,14 @@
         </a>
       </li>
 
+      <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'shared'" (click)="setActive('shared')"
+        id="sidebar-shared">
+        <a class="sidebar-link" title="Shared With Me">
+          <img src="/icons/share.svg" alt="shared" class="icon" />
+          <span class="sidebar-label">Shared With Me</span>
+        </a>
+      </li>
+
       <!-- <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'trash'" (click)="setActive('trash')"
         id="sidebar-trash">
         <a class="sidebar-link" title="Trash" routerLink="/trash">
@@ -63,6 +71,14 @@
   </nav>
   </div>
 </aside>
+
+<!-- Folder upload status bar with Cancel button (shown during folder upload) -->
+<div class="sidebar-upload-bar" *ngIf="uploading">
+  <span class="sidebar-upload-bar__text">Uploading...</span>
+  <button type="button" class="sidebar-upload-bar__cancel" (click)="cancelUpload()">
+    Cancel
+  </button>
+</div>
 
 <div class="sidebar-overlay" *ngIf="!collapsed && isMobile" (click)="onOverlayClick()" id="sidebar-overlay">
 </div>
