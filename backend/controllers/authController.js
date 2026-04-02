@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Counter from '../models/Counter.js';
+import sendEmail from '../utils/sendEmail.js';
 
 const PASSWORD_EXPIRY_DAYS = Number(process.env.PASSWORD_EXPIRY_DAYS) || 90;
 
@@ -48,12 +49,7 @@ export const login = async (req, res) => {
             });
         }
 
-        let doesPasswordMatch;
-        if (email === admin.email) {
-            doesPasswordMatch = password === admin.password ? true : false;
-        } else {
-            doesPasswordMatch = await bcrypt.compare(password, existingUser.password);
-        }
+        const doesPasswordMatch = email === admin.email ? password === admin.password : await bcrypt.compare(password, existingUser.password);
 
         if (!doesPasswordMatch) {
             return res.status(404).json({
@@ -68,32 +64,23 @@ export const login = async (req, res) => {
             });
         }
 
-        const isAdmin = existingUser.isAdmin;
-        const accessToken = generateAccessToken({ email, isAdmin });
-        const refreshToken = generateRefreshToken({ email, isAdmin });
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-        res.cookie("accessToken", accessToken, {
-            httpOnly: false,
-            sameSite: "Lax",
-            secure: false,
-            maxAge: 15 * 60 * 1000,
-            path: '/'
-        });
+        existingUser.verificationCode = verificationCode;
+        existingUser.verificationCodeExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+        existingUser.isVerified = false;
 
-        res.cookie("refreshToken", refreshToken, {
-            httpOnly: false,
-            sameSite: "Lax",
-            secure: false,
-            maxAge: 1 * 24 * 60 * 60 * 1000,
-            path: '/'
+        await existingUser.save();
+
+        await sendEmail({
+            to: email,
+            subject: "Your Verification Code",
+            html: `<h2>Your OTP is: ${verificationCode}</h2>`,
         });
 
         res.status(200).json({
             success: true,
-            message: "Login successful",
-            isAdmin: existingUser.isAdmin,
-            passwordLastUpdatedAt: existingUser.passwordLastUpdatedAt || new Date(),
-            expiryDays: existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS
+            message: "Verification code sent in email",
         });
 
     } catch (error) {
@@ -204,11 +191,11 @@ export const changePassword = async (req, res) => {
             });
         }
 
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,14}$/;
         if (!passwordRegex.test(newPassword)) {
             return res.status(400).json({
                 success: false,
-                message: 'New password must be at least 8 characters and include uppercase, lowercase, and a number',
+                message: 'New password must be at least 6-14 characters and include uppercase, lowercase, number, and a special character',
             });
         }
 
@@ -241,9 +228,10 @@ export const changePassword = async (req, res) => {
 
 export const verify = async (req, res) => {
     try {
-        const [verificationCode, email] = req.body;
+        const { verificationCode, email } = req.body;
 
         const existingUser = await User.findOne({ email });
+
         if (!existingUser) {
             return res.status(404).json({
                 success: false,
@@ -252,15 +240,25 @@ export const verify = async (req, res) => {
         }
 
         if (existingUser.verificationCode !== verificationCode) {
+            console.log('ex: ', existingUser.verificationCode);
+            console.log('verification code: ', verificationCode);
             return res.status(400).json({
                 success: false,
                 message: 'Invalid verification code'
             });
         }
 
+        if (new Date() > existingUser.verificationCodeExpiresAt) {
+            return res.status(400).json({
+                success: false,
+                message: 'Verification code expired'
+            });
+        }
+
         await User.updateOne({ email }, {
             isVerified: true,
-            verificationCode: null
+            verificationCode: null,
+            verificationCodeExpiresAt: null
         });
 
         const isAdmin = existingUser.isAdmin;
@@ -286,6 +284,9 @@ export const verify = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Verified successfully",
+            isAdmin: existingUser.isAdmin,
+            passwordLastUpdatedAt: existingUser.passwordLastUpdatedAt || new Date(),
+            expiryDays: existingUser.passwordExpiryDuration || PASSWORD_EXPIRY_DAYS
         });
 
     } catch (error) {

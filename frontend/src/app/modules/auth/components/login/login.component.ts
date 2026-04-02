@@ -4,16 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { LoginDetails } from '../../models/LoginDetails';
-import { LoginResponse } from '../../models/LoginResponse';
 import { AuthService } from '../../../../services/auth/auth.service';
 import { ToastService } from '../../../../services/toast/toast.service';
+import { BackendResponse } from '../../../../shared/models/BackendResponse';
 
 
 @Component({
-  selector: 'app-login',
-  imports: [FormsModule, CommonModule, RouterModule],
-  templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css']
+    selector: 'app-login',
+    imports: [FormsModule, CommonModule, RouterModule],
+    templateUrl: './login.component.html',
+    styleUrls: ['./login.component.css']
 })
 export class LoginComponent {
 
@@ -27,38 +27,27 @@ export class LoginComponent {
 
 
     login(loginDetails: LoginDetails) {
+        if (!loginDetails?.email) {
+            this.toast.error("Email is required");
+            return;
+        }
+        loginDetails.email = loginDetails.email.trim();
+        
         this.authService.login(loginDetails).subscribe({
-            next: (res: LoginResponse) => {
-                this.toast.success(res.message);
-                this.handleLoginResponse(res);
+            next: (res: BackendResponse) => {
+                if (res.success) {
+                    this.toast.success(res.message);
+                    localStorage.removeItem('email');
+                    localStorage.setItem('email', loginDetails.email);
+                    this.router.navigate(['/auth/verify'], {
+                        state: { email: loginDetails.email }
+                    });
+                }
             },
             error: (err: HttpErrorResponse) => {
                 console.error('Error : ', err);
                 this.errorMsg = err?.error?.message;
             }
         });
-    }
-
-
-   
-    private handleLoginResponse(res: LoginResponse): void {
-       
-        if (res.success && res.passwordLastUpdatedAt && res.expiryDays) {
-            this.authService.saveExpiryInfo(res.passwordLastUpdatedAt, res.expiryDays);
-        }
-
-        this.authService.saveAdminStatus(res.success ? (res.isAdmin ?? false) : false);
-
-        if (this.authService.isPasswordExpired()) {
-            this.router.navigate(['/auth/reset-password']);
-            return;
-        }
-
-        if (this.authService.isAdmin()) {
-            this.router.navigate(['/admin']);
-            return;
-        }
-
-        this.router.navigate(['/home']);
     }
 }
