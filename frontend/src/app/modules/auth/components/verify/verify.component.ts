@@ -7,6 +7,7 @@ import { BackendResponse } from '../../../../shared/models/BackendResponse';
 import { Router } from '@angular/router';
 import { Verify } from '../../models/Verify';
 import { ToastService } from '../../../../services/toast/toast.service';
+import { VerifyResponse } from '../../models/VerifyResponse';
 
 @Component({
     selector: 'app-verify',
@@ -16,15 +17,24 @@ import { ToastService } from '../../../../services/toast/toast.service';
 })
 export class VerifyComponent {
 
-    email:string =''
+    email: string = '';
 
     constructor(
         private router: Router,
         private authService: AuthService,
         private toast: ToastService
-    ) { }
+    ) {}
 
     ngOnInit() {
+        const navigation = this.router.getCurrentNavigation();
+
+        this.email =
+            navigation?.extras?.state?.['email'] ||
+            history.state?.email ||
+            localStorage.getItem('email') ||
+            '';
+
+        console.log('Email:', this.email);
         this.email = history.state.email;
         console.log(this.email);
     }
@@ -32,8 +42,10 @@ export class VerifyComponent {
     verify(verificationDetails: Verify) {
         this.authService.verify(verificationDetails).subscribe({
             next: (res: BackendResponse) => {
-                this.toast.success(res.message);
-                this.router.navigate(['/home']);
+                if (res.success) {
+                    this.toast.success(res.message);
+                    this.handleVerifyResponse(res);
+                }
             },
 
             error: (err: HttpErrorResponse) => {
@@ -41,6 +53,28 @@ export class VerifyComponent {
                 this.toast.error(err?.error?.message);
             }
         });
+    }
+
+
+    private handleVerifyResponse(res: VerifyResponse) {
+
+        if (res.success && res.passwordLastUpdatedAt && res.expiryDays) {
+            this.authService.saveExpiryInfo(res.passwordLastUpdatedAt, res.expiryDays);
+        }
+
+        this.authService.saveAdminStatus(res.success ? (res.isAdmin ?? false) : false);
+
+        if (this.authService.isPasswordExpired()) {
+            this.router.navigate(['/auth/reset-password']);
+            return;
+        }
+
+        if (this.authService.isAdmin()) {
+            this.router.navigate(['/admin']);
+            return;
+        }
+
+        this.router.navigate(['/home']);
     }
 }
 

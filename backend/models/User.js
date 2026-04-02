@@ -33,11 +33,13 @@ const userSchema = new mongoose.Schema(
         },
 
         verificationCode: {
-            type: String
+            type: String,
+            default: null
         },
 
         verificationCodeExpiresAt: {
-            type: Date
+            type: Date,
+            default: null
         },
 
         passwordChangedAt: {
