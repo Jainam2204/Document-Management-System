@@ -1,6 +1,6 @@
 import { Component, ElementRef, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FileService } from '../../../services/file/file.service';
 import { ToastService } from '../../../services/toast/toast.service';
@@ -8,7 +8,7 @@ import { AuthService } from '../../../services/auth/auth.service';
 import { RouteHelperService } from '../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../../../modules/user/components/file-action-dropdown/file-action-dropdown.component';
 import { BackendResponse } from '../../models/BackendResponse';
-import { Subscription, concatMap, from, map, tap, catchError, EMPTY, switchMap, filter, finalize } from 'rxjs';
+import { Subscription, concatMap, from, tap, catchError, EMPTY, finalize, takeWhile } from 'rxjs';
 import { SizePipe } from '../../pipes/size/size.pipe';
 import { UserService } from '../../../services/user/user.service';
 import { StorageService } from '../../../services/storage/storage.service';
@@ -32,6 +32,7 @@ export class SidebarComponent implements OnDestroy {
     isMobile = false;
     showNewMenu = false;
     uploading = false;
+    uploadCancelled = false;
     parentFolderId: string | null = ''
 
     constructor(
@@ -102,7 +103,6 @@ export class SidebarComponent implements OnDestroy {
     Select folder → validate files → extract root folder name → build subfolder paths → 
     create folder structure in backend → map folder paths to IDs → loop through files sequentially
     → determine each file’s parent folder → request S3 upload URL → upload file to S3 → save file metadata in database → track upload progress → handle errors if any → on completion show success and refresh UI
-
     */
 
     onFileSelected(event: any) {
@@ -110,61 +110,29 @@ export class SidebarComponent implements OnDestroy {
         if (!file) return;
 
         const folderId = this.getFolderId();
-
-        console.log('folderId : ', folderId);
-
         event.target.value = '';
 
         this.uploading = true;
         this.toast.warning('Uploading ' + file.name + '...');
 
-        this.fileService.getUploadUrl(file.name, file.type, file.size).pipe(
-
-            switchMap((urlRes: any) => {
-                if (!urlRes || !urlRes.success) {
-                    throw new Error(urlRes?.message || 'Failed to get upload URL');
+        this.fileService.uploadFile(file, folderId).subscribe({
+            next: (res) => {
+                if (res?.success) {
+                    this.toast.success(file.name + ' uploaded successfully!');
+                    this.storageService.refreshStorage();
+                } else {
+                    this.toast.error(res?.message || 'Upload failed');
                 }
-
-                return this.fileService.uploadToS3(urlRes.uploadUrl, file).pipe(
-                    filter(event => event.type === HttpEventType.Response),
-                    map(() => urlRes)
-                );
-            }),
-
-            switchMap((urlRes: any) => {
-
-                return this.fileService.saveFileMetadata(
-                    file.name,
-                    urlRes.s3Key,
-                    file.size,
-                    file.type,
-                    folderId
-                );
-            }),
-
-            tap((saveRes: any) => {
-                if (!saveRes || !saveRes.success) {
-                    throw new Error(saveRes?.message || 'Failed to save file');
-                }
-
-                this.toast.success(file.name + ' uploaded successfully!');
-                this.storageService.refreshStorage();
-            }),
-
-            catchError((err) => {
-                console.error('Upload error:', err);
-                this.toast.error('Upload failed: ' + (err.message || 'Unknown error'));
-                return EMPTY;
-            }),
-
-            finalize(() => {
                 this.uploading = false;
-            })
-
-        ).subscribe();
+            },
+            error: (err) => {
+                this.toast.error(err?.error?.message || 'Upload failed');
+                this.uploading = false;
+            }
+        });
     }
 
-    onFolderSelected(event: any)  {
+    onFolderSelected(event: any) {
         const fileList: FileList = event.target.files;
 
         if (!fileList || fileList.length === 0) {
@@ -173,7 +141,6 @@ export class SidebarComponent implements OnDestroy {
         }
 
         const files: File[] = Array.from(fileList);
-
         event.target.value = '';
 
         const firstFile = files[0];
@@ -186,23 +153,18 @@ export class SidebarComponent implements OnDestroy {
 
         const rootName = firstPath.split('/')[0];
 
-        console.log("Root folder:", rootName);
-
         const folderPaths = new Set<string>();
 
         for (const file of files) {
             const relativePath = (file as any)?.webkitRelativePath;
-
             if (!relativePath) continue;
-
             const parts = relativePath.split('/');
-
             for (let i = 2; i < parts.length; i++) {
-                const subPath = parts.slice(1, i).join('/');
-                folderPaths.add(subPath);
+                folderPaths.add(parts.slice(1, i).join('/'));
             }
         }
 
+        this.uploadCancelled = false;
         this.uploading = true;
         this.toast.warning(`Uploading folder "${rootName}" (${files.length} files)...`);
 
@@ -217,29 +179,18 @@ export class SidebarComponent implements OnDestroy {
                 let uploaded = 0;
 
                 return from(files).pipe(
+                    takeWhile(() => !this.uploadCancelled),
                     concatMap(file => {
                         const relativePath = (file as any).webkitRelativePath;
                         const parts = relativePath.split('/');
                         const parentSubPath = parts.slice(1, -1).join('/');
+                        const folderId = parentSubPath === '' ? pathToIdMap[''] : pathToIdMap[parentSubPath];
+                        const relativeDir = parts.slice(0, -1).join('/');
 
-                        const folderId = parentSubPath === ''
-                            ? pathToIdMap['']
-                            : pathToIdMap[parentSubPath];
-
-                        return this.fileService.getUploadUrl(file.name, file.type || 'application/octet-stream', file.size).pipe(
-                            concatMap(urlRes => {
-                                if (!urlRes?.success) {
-                                    return EMPTY;
-                                }
-
-                                return this.fileService.uploadToS3(urlRes.uploadUrl, file).pipe(
-                                    filter(event => event.type === HttpEventType.Response),
-                                    concatMap(() => this.fileService.saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId)),
-                                    tap(() => {
-                                        uploaded++;
-                                        this.toast.success(`Uploaded ${uploaded}/${files.length}`);
-                                    })
-                                );
+                        return this.fileService.uploadFile(file, folderId, relativeDir).pipe(
+                            tap(() => {
+                                uploaded++;
+                                this.toast.success(`Uploaded ${uploaded}/${files.length}`);
                             })
                         );
                     })
@@ -252,8 +203,13 @@ export class SidebarComponent implements OnDestroy {
             })
         ).subscribe({
             complete: () => {
-                this.toast.success(`Folder uploaded successfully!`);
+                if (this.uploadCancelled) {
+                    this.toast.warning('Upload cancelled. Files uploaded so far are saved.');
+                } else {
+                    this.toast.success(`Folder uploaded successfully!`);
+                }
                 this.storageService.refreshStorage();
+                this.uploadCancelled = false;
                 this.uploading = false;
             },
             error: () => {
@@ -269,6 +225,9 @@ export class SidebarComponent implements OnDestroy {
         }
         if (item === 'trash') {
             this.router.navigate(['/trash']);
+        }
+        if (item === 'shared') {
+            this.router.navigate(['/shared-with-me']);
         }
     }
 
@@ -305,37 +264,17 @@ export class SidebarComponent implements OnDestroy {
 
     private uploadFile(file: File, parentId: string | null) {
         this.toast.warning('Uploading ' + file.name + '...');
-        this.fileService.getUploadUrl(file.name, file.type, file.size).subscribe({
+        this.fileService.uploadFile(file, parentId).subscribe({
             next: (res) => {
-                if (!res?.success) {
-                    this.toast.error(res?.message || 'Failed to get upload URL');
-                    return;
+                if (res?.success) {
+                    this.toast.success(file.name + ' uploaded successfully!');
+                    this.storageService.refreshStorage();
+                } else {
+                    this.toast.error(res?.message || 'Failed to upload file');
                 }
-                this.fileService.uploadToS3(res.uploadUrl, file).subscribe({
-                    next: (event) => {
-                        if (event.type === HttpEventType.Response) {
-                            this.fileService.saveFileMetadata(file.name, res.s3Key, file.size, file.type, parentId!).subscribe({
-                                next: (saveRes) => {
-                                    if (saveRes?.success) {
-                                        this.toast.success(file.name + ' uploaded successfully!');
-                                        this.storageService.refreshStorage();
-                                    } else {
-                                        this.toast.error(saveRes?.message || 'Failed to save file');
-                                    }
-                                },
-                                error: (err) => {
-                                    this.toast.error('Failed to save file');
-                                }
-                            });
-                        }
-                    },
-                    error: (err) => {
-                        this.toast.error('Failed to upload file to S3');
-                    }
-                });
             },
             error: (err) => {
-                this.toast.error('Failed to get upload URL');
+                this.toast.error(err?.error?.message || 'Failed to upload file');
             }
         });
     }
@@ -352,6 +291,7 @@ export class SidebarComponent implements OnDestroy {
             return;
         }
 
+        this.uploadCancelled = false;
         this.uploading = true;
         this.toast.warning(`Uploading folder "${parsed.rootName}"...`);
 
@@ -412,6 +352,10 @@ export class SidebarComponent implements OnDestroy {
         };
     }
 
+    cancelUpload() {
+        this.uploadCancelled = true;
+    }
+
     private uploadFilesSequentially(
         fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
         pathToIdMap: { [path: string]: string }
@@ -421,6 +365,14 @@ export class SidebarComponent implements OnDestroy {
         let failureCount = 0;
 
         const next = () => {
+            if (this.uploadCancelled) {
+                this.uploading = false;
+                this.uploadCancelled = false;
+                this.storageService.refreshStorage();
+                this.toast.warning(`Upload cancelled. ${successCount} file(s) were saved.`);
+                return;
+            }
+
             if (index >= fileItems.length) {
                 this.uploading = false;
                 this.storageService.refreshStorage();
@@ -459,31 +411,10 @@ export class SidebarComponent implements OnDestroy {
         folderId: string,
         relativePath: string,
         callback: (success: boolean) => void
-    )  {
-        this.fileService.getUploadUrl(file.name, file.type, file.size, relativePath).subscribe({
-            next: (urlRes) => {
-                if (!urlRes?.success) {
-                    callback(false);
-                    return;
-                }
-
-                this.fileService.uploadToS3(urlRes.uploadUrl, file).subscribe({
-                    next: (event) => {
-                        if (event.type === HttpEventType.Response) {
-                            this.fileService.saveFileMetadata(file.name, urlRes.s3Key, file.size, file.type, folderId).subscribe({
-                                next: (saveRes) => {
-                                    callback(saveRes?.success ?? false);
-                                },
-                                error: () => {
-                                    callback(false);
-                                }
-                            });
-                        }
-                    },
-                    error: () => {
-                        callback(false);
-                    }
-                });
+    ) {
+        this.fileService.uploadFile(file, folderId, relativePath).subscribe({
+            next: (res) => {
+                callback(res?.success ?? false);
             },
             error: () => {
                 callback(false);

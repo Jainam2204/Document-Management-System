@@ -17,7 +17,7 @@ const authMiddleware = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
         const user = await User.findOne({ email: decoded.email }).select(
-            '_id id email isAdmin storageUsed storageLimit'
+            '_id id name email isAdmin storageUsed storageLimit'
         );
 
         if (!user) {

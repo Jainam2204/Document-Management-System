@@ -1,0 +1,118 @@
+<div class="shared">
+    <div class="shared__header">
+        <span class="shared__title">
+            {{ isFolderView ? currentFolder?.name : 'Shared With Me' }}
+        </span>
+        <button *ngIf="isFolderView" class="back-btn" (click)="goBack()">← Back</button>
+    </div>
+
+    <div class="shared__loading" *ngIf="loading">Loading...</div>
+
+    <!-- Shared Items List View -->
+    <div class="shared__section" *ngIf="!loading && !isFolderView && items.length > 0">
+        <div class="shared__grid">
+            <div class="shared-card" *ngFor="let item of items">
+                <div class="shared-card__top">
+                    <div class="shared-card__icon">
+                        <!-- SVG icon based on file type -->
+                        <img 
+                            [src]="getItemIcon(item)" 
+                            [alt]="isFile(item) ? 'File icon' : 'Folder icon'"
+                            class="icon-svg"
+                            [class]="isFile(item) ? '' : 'clickable'"
+                            (click)="!isFile(item) && onFolderClick(item)"
+                        />
+                    </div>
+
+                    <div class="shared-card__info">
+                        <div class="shared-card__name">{{ item.name }}</div>
+                        <div class="shared-card__meta">
+                            <span *ngIf="isFile(item)">{{ item.size | size }}</span>
+                            <span *ngIf="!isFile(item)">Folder</span>
+                        </div>
+                        <div class="shared-card__shared-by">
+                            Shared by: {{ item.sharedByEmail }}
+                        </div>
+                    </div>
+
+                    <div class="shared-card__actions" *ngIf="isFile(item)">
+                        <button
+                            type="button"
+                            class="download-btn"
+                            title="Download"
+                            (click)="downloadFile(item)"
+                        >
+                            ⬇
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folder Contents View -->
+    <div class="shared__section" *ngIf="!loading && isFolderView">
+        <div class="shared__folder-info" *ngIf="currentFolder">
+            <p>Shared by: {{ currentFolder.sharedByEmail }}</p>
+            <p *ngIf="currentFolder.expiresAt">Expires: {{ currentFolder.expiresAt | date:'medium' }}</p>
+        </div>
+
+        <div class="shared__grid">
+            <!-- Folders -->
+            <div class="shared-card" *ngFor="let folder of folders">
+                <div class="shared-card__top">
+                    <div class="shared-card__icon">
+                        <img 
+                            [src]="getItemIcon(folder)" 
+                            alt="Folder icon"
+                            class="icon-svg clickable"
+                            (click)="onFolderClick(folder)"
+                        />
+                    </div>
+
+                    <div class="shared-card__info">
+                        <div class="shared-card__name">{{ folder.name }}</div>
+                        <div class="shared-card__meta">Folder</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Files -->
+            <div class="shared-card" *ngFor="let file of files">
+                <div class="shared-card__top">
+                    <div class="shared-card__icon">
+                        <img 
+                            [src]="getItemIcon(file)" 
+                            alt="File icon"
+                            class="icon-svg"
+                        />
+                    </div>
+
+                    <div class="shared-card__info">
+                        <div class="shared-card__name">{{ file.name }}</div>
+                        <div class="shared-card__meta">{{ file.size | size }}</div>
+                    </div>
+
+                    <div class="shared-card__actions">
+                        <button
+                            type="button"
+                            class="download-btn"
+                            title="Download"
+                            (click)="downloadFile(file)"
+                        >
+                            ⬇
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="shared__empty" *ngIf="folders.length === 0 && files.length === 0">
+            <p>This folder is empty.</p>
+        </div>
+    </div>
+
+    <div class="shared__empty" *ngIf="!loading && !isFolderView && items.length === 0">
+        <p>No files or folders have been shared with you yet.</p>
+    </div>
+</div>

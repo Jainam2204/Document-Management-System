@@ -103,6 +103,58 @@
   background: #f1f3f5;
 }
 
+/* Email chips styling */
+.email-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.chip__remove {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.chip__remove:hover {
+  color: #d32f2f;
+}
+
+.chip--add {
+  margin-left: 8px;
+  background: #1e8e3e;
+  color: white;
+  border-color: #1e8e3e;
+}
+
+.chip--add:hover {
+  background: #166c2e;
+}
+
+.chip--add:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
 .drive__section {
   margin-top: 20px;
 }
@@ -153,6 +205,14 @@
   margin-top: 4px;
 }
 
+/* SVG icon for folder */
+.folder-card__icon {
+  width: 32px;
+  height: 32px;
+  color: #4a5cc6;
+  flex-shrink: 0;
+}
+
 .file-card {
   background: #fff;
   border-radius: 10px;
@@ -172,6 +232,14 @@
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+/* SVG icon for file */
+.file-card__icon {
+  width: 32px;
+  height: 32px;
+  color: #5f6368;
+  flex-shrink: 0;
 }
 
 .file-card__text {
@@ -256,4 +324,39 @@
   padding: 60px 20px;
   color: #888;
   font-size: 14px;
+}
+
+/* Folder upload progress bar shown during folder upload */
+.folder-upload-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1a73e8;
+}
+
+.folder-upload-bar__text {
+  flex: 1;
+}
+
+.folder-upload-bar__cancel {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid #c5221f;
+  background: #fff;
+  color: #c5221f;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.folder-upload-bar__cancel:hover {
+  background: #fce8e6;
 }

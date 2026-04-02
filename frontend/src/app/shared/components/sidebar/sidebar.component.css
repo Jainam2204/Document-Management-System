@@ -403,3 +403,48 @@
   background: #007bff;
   color: #fff;
 }
+
+/* Upload progress bar shown during folder upload (positioned at bottom of screen) */
+.sidebar-upload-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 16px;
+  right: 16px;
+  max-width: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #e8f0fe;
+  border: 1px solid #c5d8fb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1a73e8;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.sidebar-upload-bar__text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-upload-bar__cancel {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #c5221f;
+  background: #fff;
+  color: #c5221f;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.sidebar-upload-bar__cancel:hover {
+  background: #fce8e6;
+}

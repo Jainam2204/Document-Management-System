@@ -1,15 +1,14 @@
 import 'dotenv/config';
-import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, CopyObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import s3 from '../config/s3.js';
 import File from '../models/File.js';
 import Folder from '../models/Folder.js';
 import User from '../models/User.js';
 import Counter from '../models/Counter.js';
 import ShareLink from '../models/ShareLink.js';
+import Share from '../models/Share.js';
 import { generateToken } from '../utils/generateToken.js';
 import { generateDownloadUrl } from '../utils/generateDownloadURL.js';
-import { v4 as uuidv4 } from 'uuid';
 import { getUniqueFileName, folderNameExists, findExistingFolder } from '../utils/uniqueName.js';
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -77,14 +76,28 @@ const updateFolderSizeAncestors = async (folderId, size, ownerId) => {
 
 const updateUserStorage = async (userId, size) => {
     try {
-        if (!userId || !size) {
+        if (!userId || size === undefined || size === null || size === 0) {
             return;
         }
-        console.log('storage size : ', size);
-        await User.findByIdAndUpdate(userId, { $inc: { storageUsed: size } });
+
+        if (size < 0) {
+           
+            await User.findByIdAndUpdate(userId, [
+                {
+                    $set: {
+                        storageUsed: {
+                            $max: [0, { $add: ['$storageUsed', size] }]
+                        }
+                    }
+                }
+            ]);
+        } else {
+            await User.findByIdAndUpdate(userId, { $inc: { storageUsed: size } });
+        }
 
     } catch (error) {
-        console.error('Error : ', error);
+        console.error('Failed to update user storage:', error);
+        throw error;
     }
 }
 
@@ -94,7 +107,8 @@ const getFolderSubtreeSize = async (folderId, ownerId, includeDeleted = false) =
         .select('size')
         .lean();
 
-    if (folder && typeof folder.size === 'number') {
+  
+    if (folder && folder.size > 0) {
         return folder.size;
     }
 
@@ -171,9 +185,7 @@ const cleanupExpiredTrash = async (ownerId) => {
 
     if (expiredFiles.length) {
         await deleteS3Objects(expiredFiles.map((file) => file.s3Key));
-        const totalSize = expiredFiles.reduce((sum, file) => sum + (file.size || 0), 0);
         await File.deleteMany({ _id: { $in: expiredFiles.map((file) => file._id) } });
-        await User.findByIdAndUpdate(ownerId, { $inc: { storageUsed: -totalSize } });
     }
 
     const expiredFolders = await Folder.find({
@@ -188,8 +200,6 @@ const cleanupExpiredTrash = async (ownerId) => {
             const filesToDelete = await File.find({ owner: ownerId, folder: { $in: descendantFolderIds } }).lean();
             if (filesToDelete.length) {
                 await deleteS3Objects(filesToDelete.map((file) => file.s3Key));
-                const totalSize = filesToDelete.reduce((sum, file) => sum + (file.size || 0), 0);
-                await User.findByIdAndUpdate(ownerId, { $inc: { storageUsed: -totalSize } });
                 await File.deleteMany({ _id: { $in: filesToDelete.map((file) => file._id) } });
             }
             await Folder.deleteMany({ _id: { $in: descendantFolderIds }, owner: ownerId });
@@ -246,12 +256,14 @@ const restoreFolderTree = async (folderId, ownerId) => {
         { $set: { isDeleted: false, deletedAt: null } }
     );
 
+    const subtreeSize = await getFolderSubtreeSize(folderId, ownerId, true);
+
+    if (subtreeSize > 0) {
+        await updateUserStorage(ownerId, subtreeSize);
+    }
+
     if (rootFolder && rootFolder.parentFolder) {
-        const subtreeSize = await getFolderSubtreeSize(folderId, ownerId, true);
         await updateFolderSizeAncestors(rootFolder.parentFolder, subtreeSize, ownerId);
-        if (subtreeSize > 0) {
-            await updateUserStorage(ownerId, subtreeSize);
-        }
     }
 };
 
@@ -294,117 +306,158 @@ const permanentlyDeleteFolderById = async (folderId, ownerId) => {
         await deleteS3Objects(fileKeys);
     }
 
-    const totalSize = filesToDelete.reduce((sum, file) => sum + (file.size || 0), 0);
     await File.deleteMany({ _id: { $in: filesToDelete.map((file) => file._id) } });
     await Folder.deleteMany({ _id: { $in: folderIds }, owner: ownerId });
-    await User.findByIdAndUpdate(ownerId, { $inc: { storageUsed: -totalSize } });
     return rootFolder;
 };
 
 
-export const getUploadUrl = async (req, res) => {
-    try {
-        const { fileName, fileType, fileSize, relativePath } = req.body;
+const buildFolderPath = async (folderId) => {
+    const pathParts = [];
+    let currentFolderId = folderId;
 
-        if (!fileName || !fileType || !fileSize) {
+    while (currentFolderId) {
+        const folder = await Folder.findById(currentFolderId).select('name parentFolder').lean();
+        if (!folder) break;
+
+        pathParts.unshift(folder.name);
+
+        currentFolderId = folder.parentFolder || null;
+    }
+
+    if (pathParts.length === 0) return '';
+
+    return pathParts.join('/') + '/';
+};
+
+
+const getAllFilesInFolderTree = async (folderId, ownerId) => {
+    const files = await File.find({
+        folder: folderId,
+        owner: ownerId,
+        isDeleted: false
+    });
+
+    const subFolders = await Folder.find({
+        parentFolder: folderId,
+        owner: ownerId,
+        isDeleted: false
+    }).select('_id').lean();
+
+    for (const subFolder of subFolders) {
+        const subFiles = await getAllFilesInFolderTree(subFolder._id, ownerId);
+        files.push(...subFiles);
+    }
+
+    return files;
+};
+
+export const uploadFile = async (req, res) => {
+    try {
+        if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: 'fileName, fileType, and fileSize are required',
+                message: 'No file received',
             });
         }
 
         const user = req.user;
-        const remainingStorage = user.storageLimit - user.storageUsed;
+        const { folderId, relativePath } = req.body;
+        const originalName = req.file.originalname;
+        const fileSize = req.file.size;
+        const fileType = req.file.mimetype;
 
-        if (fileSize > remainingStorage) {
+        
+        const updatedUser = await User.findOneAndUpdate(
+            {
+                _id: user._id,
+                $expr: {
+                    $lte: [
+                        { $add: ['$storageUsed', fileSize] }, 
+                        '$storageLimit'                       
+                    ]
+                }
+            },
+            { $inc: { storageUsed: fileSize } },
+            { new: true }
+        );
+
+        if (!updatedUser) {
             return res.status(400).json({
                 success: false,
                 message: 'Not enough storage space',
             });
         }
 
-        let normalizedPath = '';
+        const userPrefix = `${user.name}_${user.id}`;
+
+        let folderPath = '';
+
         if (relativePath && typeof relativePath === 'string') {
-            normalizedPath = relativePath
+            folderPath = relativePath
                 .replace(/\\/g, '/')
                 .replace(/(^\/+|\/+$)/g, '');
-            if (normalizedPath) {
-                normalizedPath = `${normalizedPath}/`;
+            if (folderPath) {
+                folderPath = folderPath + '/';
             }
+        } else if (folderId) {
+            folderPath = await buildFolderPath(folderId);
         }
 
-        const s3Key = `uploads/${user._id}/${normalizedPath}${uuidv4()}-${fileName}`;
+        const s3Key = `uploads/${userPrefix}/${folderPath}${originalName}`;
 
         const command = new PutObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             Key: s3Key,
+            Body: req.file.buffer,
             ContentType: fileType,
         });
 
-        const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 120 });
+        await s3.send(command);
 
-        res.status(200).json({
-            success: true,
-            uploadUrl,
-            s3Key,
-        });
-    } catch (error) {
-        console.error('Error in getUploadUrl: ' + error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to generate upload URL',
-        });
-    }
-};
+        let file;
+        try {
+            const uniqueName = await getUniqueFileName(user._id, folderId || null, originalName);
 
+            const counter = await Counter.findOneAndUpdate(
+                { collectionName: 'files' },
+                { $inc: { count: 1 } },
+                { new: true, upsert: true }
+            );
 
-export const saveFileMetadata = async (req, res) => {
-    try {
-        const { name, s3Key, size, type, folderId } = req.body;
-
-        if (!name || !s3Key || !size) {
-            return res.status(400).json({
-                success: false,
-                message: 'name, s3Key, and size are required',
+            file = await File.create({
+                id: counter.count,
+                name: uniqueName,
+                s3Key,
+                size: fileSize,
+                type: fileType || 'application/octet-stream',
+                folder: folderId || null,
+                owner: user._id,
             });
+        } catch (dbError) {
+            await User.findByIdAndUpdate(user._id, { $inc: { storageUsed: -fileSize } })
+                .catch(err => console.error('Failed to rollback storageUsed after DB error:', err));
+
+            await deleteS3Object(s3Key)
+                .catch(err => console.error('Failed to clean up orphaned S3 object after DB error:', err));
+
+            throw dbError;
         }
 
-        const uniqueName = await getUniqueFileName(req.user._id, folderId || null, name);
-
-        const counter = await Counter.findOneAndUpdate(
-            { collectionName: 'files' },
-            { $inc: { count: 1 } },
-            { new: true, upsert: true }
-        );
-
-        const file = await File.create({
-            id: counter.count,
-            name: uniqueName,
-            s3Key,
-            size,
-            type: type || 'application/octet-stream',
-            folder: folderId || null,
-            owner: req.user._id,
-        });
-
-        await User.findByIdAndUpdate(req.user._id, {
-            $inc: { storageUsed: size },
-        });
-
         if (folderId) {
-            await updateFolderSizeAncestors(folderId, size, req.user._id);
+            await updateFolderSizeAncestors(folderId, fileSize, user._id);
         }
 
         res.status(201).json({
             success: true,
-            message: 'File saved successfully',
+            message: 'File uploaded successfully',
             file,
         });
     } catch (error) {
-        console.error('Error in saveFileMetadata: ' + error);
+        console.error('Error in uploadFile: ' + error);
         res.status(500).json({
             success: false,
-            message: 'Failed to save file metadata',
+            message: 'Failed to upload file',
         });
     }
 };
@@ -926,7 +979,7 @@ export const updateFileDeleteStatus = async (req, res) => {
         });
     } catch (err) {
         console.error('Error : ', err);
-        res.status(400).json({
+        res.status(500).json({
             success: false,
             message: 'Error occured while deleting file'
         });
@@ -959,7 +1012,7 @@ export const updateFolderDeleteStatus = async (req, res) => {
         });
     } catch (err) {
         console.error('Error : ', err);
-        res.status(400).json({
+        res.status(500).json({
             success: false,
             message: 'Error occured while deleting folder'
         });
@@ -995,8 +1048,30 @@ export const renameFile = async (req, res) => {
         const trimmedName = newName.trim();
         const folderId = file.folder || null;
 
-        file.name = await getUniqueFileName(req.user._id, folderId, trimmedName, fileId);
+        const uniqueName = await getUniqueFileName(req.user._id, folderId, trimmedName, fileId);
 
+        const oldS3Key = file.s3Key;
+
+        const lastSlashIndex = oldS3Key.lastIndexOf('/');
+        const folderPrefix = lastSlashIndex >= 0 ? oldS3Key.slice(0, lastSlashIndex + 1) : '';
+
+        const newS3Key = folderPrefix + uniqueName;
+
+        const copyCommand = new CopyObjectCommand({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            CopySource: `${process.env.AWS_BUCKET_NAME}/${oldS3Key}`,
+            Key: newS3Key,
+        });
+        await s3.send(copyCommand);
+
+        const deleteCommand = new DeleteObjectCommand({
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: oldS3Key,
+        });
+        await s3.send(deleteCommand);
+
+        file.name = uniqueName;
+        file.s3Key = newS3Key;
         await file.save();
 
         return res.status(200).json({
@@ -1048,8 +1123,45 @@ export const renameFolder = async (req, res) => {
             });
         }
 
+        const userPrefix = `${req.user.name}_${req.user.id}`;
+        const oldFolderRelativePath = await buildFolderPath(folderId);
+        const oldS3Prefix = `uploads/${userPrefix}/${oldFolderRelativePath}`;
+
+        const oldFolderName = folder.name;
+        const parentPath = oldFolderRelativePath.slice(0, -(oldFolderName.length + 1)); 
+        const newFolderRelativePath = parentPath + trimmedName + '/';
+        const newS3Prefix = `uploads/${userPrefix}/${newFolderRelativePath}`;
+
         folder.name = trimmedName;
         await folder.save();
+
+        const allFiles = await getAllFilesInFolderTree(folderId, req.user._id);
+
+        for (const file of allFiles) {
+            const oldS3Key = file.s3Key;
+
+            if (!oldS3Key.startsWith(oldS3Prefix)) {
+                continue;
+            }
+
+            const newS3Key = newS3Prefix + oldS3Key.slice(oldS3Prefix.length);
+
+            const copyCommand = new CopyObjectCommand({
+                Bucket: process.env.AWS_BUCKET_NAME,
+                CopySource: `${process.env.AWS_BUCKET_NAME}/${oldS3Key}`,
+                Key: newS3Key,
+            });
+            await s3.send(copyCommand);
+
+            const deleteCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_BUCKET_NAME,
+                Key: oldS3Key,
+            });
+            await s3.send(deleteCommand);
+
+            file.s3Key = newS3Key;
+            await file.save();
+        }
 
         return res.status(200).json({
             success: true,
@@ -1240,3 +1352,281 @@ export const getSharedResource = async (req, res) => {
         });
     }
 }
+
+
+export const shareResource = async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const { email, expiry } = req.body;
+
+        if (!['file', 'folder'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid resource type'
+            });
+        }
+
+        if (!email || !email.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required'
+            });
+        }
+
+        const Model = type === 'file' ? File : Folder;
+        const resource = await Model.findOne({
+            _id: id,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!resource) {
+            return res.status(404).json({
+                success: false,
+                message: `${type === 'file' ? 'File' : 'Folder'} not found`
+            });
+        }
+
+        if (email.trim().toLowerCase() === req.user.email.toLowerCase()) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot share with yourself'
+            });
+        }
+
+        const targetUser = await User.findOne({ email: email.trim().toLowerCase() });
+
+        if (!targetUser) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        const alreadyShared = await Share.findOne({
+            resourceType: type,
+            resourceId: resource._id,
+            ownerId: req.user._id,
+            sharedWithId: targetUser._id
+        });
+
+        if (alreadyShared) {
+            return res.status(400).json({
+                success: false,
+                message: 'Already shared with this user'
+            });
+        }
+
+        let expiresAt = null;
+        if (expiry) {
+            expiresAt = new Date(expiry);
+            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Expiry date must be in the future'
+                });
+            }
+        }
+
+        await Share.create({
+            resourceType: type,
+            resourceId: resource._id,
+            ownerId: req.user._id,
+            sharedWithId: targetUser._id,
+            sharedWithEmail: targetUser.email,
+            ownerEmail: req.user.email,
+            expiresAt
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: `${type === 'file' ? 'File' : 'Folder'} shared successfully`
+        });
+    } catch (err) {
+        console.error('Error in shareResource:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to share resource'
+        });
+    }
+};
+
+
+export const shareWithUsers = async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const { emails, expiry } = req.body;
+
+        if (!['file', 'folder'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid resource type'
+            });
+        }
+
+        if (!emails || !Array.isArray(emails) || emails.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least one email is required'
+            });
+        }
+
+        const Model = type === 'file' ? File : Folder;
+        const resource = await Model.findOne({
+            _id: id,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!resource) {
+            return res.status(404).json({
+                success: false,
+                message: `${type === 'file' ? 'File' : 'Folder'} not found`
+            });
+        }
+
+        let expiresAt = null;
+        if (expiry) {
+            expiresAt = new Date(expiry);
+            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Expiry date must be in the future'
+                });
+            }
+        }
+
+        const results = {
+            successful: [],
+            failed: []
+        };
+
+        for (const email of emails) {
+            try {
+                const trimmedEmail = email.trim().toLowerCase();
+
+                if (trimmedEmail === req.user.email.toLowerCase()) {
+                    results.failed.push({ email: trimmedEmail, reason: 'Cannot share with yourself' });
+                    continue;
+                }
+
+                const targetUser = await User.findOne({ email: trimmedEmail });
+                if (!targetUser) {
+                    results.failed.push({ email: trimmedEmail, reason: 'User not found' });
+                    continue;
+                }
+
+                const alreadyShared = await Share.findOne({
+                    resourceType: type,
+                    resourceId: resource._id,
+                    ownerId: req.user._id,
+                    sharedWithId: targetUser._id
+                });
+
+                if (alreadyShared) {
+                    results.failed.push({ email: trimmedEmail, reason: 'Already shared with this user' });
+                    continue;
+                }
+
+                await Share.create({
+                    resourceType: type,
+                    resourceId: resource._id,
+                    ownerId: req.user._id,
+                    sharedWithId: targetUser._id,
+                    sharedWithEmail: targetUser.email,
+                    ownerEmail: req.user.email,
+                    expiresAt
+                });
+
+                results.successful.push(trimmedEmail);
+
+            } catch (emailError) {
+                console.error(`Error sharing with ${email}:`, emailError);
+                results.failed.push({ email: email.trim(), reason: 'Internal error' });
+            }
+        }
+
+        const sharedCount = results.successful.length;
+        const failedCount = results.failed.length;
+
+        if (sharedCount === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Failed to share with any users',
+                failedEmails: results.failed
+            });
+        }
+
+        let message = `Successfully shared with ${sharedCount} user(s)`;
+        if (failedCount > 0) {
+            message += `, ${failedCount} failed`;
+        }
+
+        res.status(201).json({
+            success: true,
+            message,
+            sharedCount,
+            failedEmails: failedCount > 0 ? results.failed : undefined
+        });
+
+    } catch (err) {
+        console.error('Error in shareWithUsers:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to share resource'
+        });
+    }
+};
+
+
+export const getSharedWithMe = async (req, res) => {
+    try {
+        const shares = await Share.find({
+            sharedWithId: req.user._id,
+            $or: [
+                { expiresAt: null },
+                { expiresAt: { $gt: new Date() } }
+            ]
+        }).lean();
+
+        const items = [];
+
+        for (const share of shares) {
+            let resource = null;
+
+            if (share.resourceType === 'file') {
+                resource = await File.findOne({
+                    _id: share.resourceId,
+                    isDeleted: false
+                }).lean();
+            } else {
+                resource = await Folder.findOne({
+                    _id: share.resourceId,
+                    isDeleted: false
+                }).lean();
+            }
+
+            if (!resource) continue;
+
+            items.push({
+                ...resource,
+                resourceType: share.resourceType,
+                sharedByEmail: share.ownerEmail,
+                shareId: share._id,
+                sharedAt: share.createdAt,
+                expiresAt: share.expiresAt
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            items
+        });
+    } catch (err) {
+        console.error('Error in getSharedWithMe:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch shared items'
+        });
+    }
+};

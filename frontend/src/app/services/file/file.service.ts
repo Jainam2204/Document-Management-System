@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { environment } from '../../../environments/environment.development';
@@ -31,14 +31,7 @@ export interface FolderRecord {
     updatedAt: string;
 }
 
-interface UploadUrlResponse {
-    success: boolean;
-    uploadUrl: string;
-    s3Key: string;
-    message?: string;
-}
-
-interface SaveFileResponse {
+interface UploadFileResponse {
     success: boolean;
     message: string;
     file: FileRecord;
@@ -97,6 +90,36 @@ interface ShareLinkResponse {
     message?: string;
 }
 
+interface ShareWithUserResponse {
+    success: boolean;
+    message: string;
+}
+
+interface ShareWithUsersResponse {
+    success: boolean;
+    message: string;
+    sharedCount: number; 
+    failedEmails?: string[];
+}
+
+interface SharedItem {
+    _id: string;
+    name: string;
+    resourceType: 'file' | 'folder';
+    size?: number;
+    type?: string;
+    s3Key?: string;
+    sharedByEmail: string;
+    shareId: string;
+    sharedAt: string;
+    expiresAt: string | null;
+}
+
+interface SharedWithMeResponse {
+    success: boolean;
+    items: SharedItem[];
+}
+
 @Injectable({
     providedIn: 'root'
 })
@@ -110,36 +133,20 @@ export class FileService {
         private http: HttpClient,
     ) { }
 
- 
-    getUploadUrl(fileName: string, fileType: string, fileSize: number, relativePath?: string): Observable<UploadUrlResponse> {
-        const body: any = { fileName, fileType, fileSize };
-        if (relativePath) {
-            body.relativePath = relativePath;
+
+    uploadFile(file: File, folderId: string | null, relativePath?: string): Observable<UploadFileResponse> {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (folderId) {
+            formData.append('folderId', folderId);
         }
-        return this.http.post<UploadUrlResponse>(
-            this.url + '/upload-url',
-            body
-        );
+        if (relativePath) {
+            formData.append('relativePath', relativePath);
+        }
+        return this.http.post<UploadFileResponse>(this.url + '/upload', formData);
     }
 
-   
-    uploadToS3(uploadUrl: string, file: File): Observable<any> {
-        return this.http.put(uploadUrl, file, {
-            headers: new HttpHeaders({ 'Content-Type': file.type }),
-            reportProgress: true,
-            observe: 'events',
-        });
-    }
 
-  
-    saveFileMetadata(name: string, s3Key: string, size: number, type: string, folderId: string | null): Observable<SaveFileResponse> {
-        return this.http.post<SaveFileResponse>(
-            this.url + '/save',
-            { name, s3Key, size, type, folderId: folderId }
-        );
-    }
-
-  
     downloadFile(fileId: string): Observable<DownloadUrlResponse> {
         return this.http.get<DownloadUrlResponse>(this.url + '/download/' + fileId);
     }
@@ -155,7 +162,7 @@ export class FileService {
         );
     }
 
-   
+
     getUserFolders(parentFolder?: string): Observable<GetFoldersResponse> {
         const params: any = {};
         if (parentFolder) params.parentFolder = parentFolder;
@@ -166,7 +173,6 @@ export class FileService {
     }
 
 
-   
     getUserFiles(folderId?: string): Observable<GetFilesResponse> {
         const params: any = {};
         if (folderId) params.folderId = folderId;
@@ -176,47 +182,46 @@ export class FileService {
         });
     }
 
-  
+
     getFolderContents(folderId: string): Observable<GetFolderContentsResponse> {
         return this.http.get<GetFolderContentsResponse>(this.url + '/folders/' + folderId);
     }
 
-   
+
     renameFile(fileId: string, newName: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/rename/' + fileId, { newName });
     }
 
-   
+
     renameFolder(folderId: string, newName: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/folders/rename/' + folderId, { newName });
     }
 
- 
+
     deleteFile(fileId: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/delete/' + fileId, {});
     }
 
-    
     deleteFolder(folderId: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/folders/delete/' + folderId, {});
     }
 
-   
+
     getTrashItems(): Observable<TrashResponse> {
         return this.http.get<TrashResponse>(this.url + '/trash');
     }
 
-    
+
     restoreFile(fileId: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/restore/file/' + fileId, {});
     }
 
-   
+
     restoreFolder(folderId: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/restore/folder/' + folderId, {});
     }
 
-    
+
     permanentlyDeleteFile(fileId: string): Observable<GenericResponse> {
         return this.http.post<GenericResponse>(this.url + '/permanent/file/' + fileId, {});
     }
@@ -236,5 +241,27 @@ export class FileService {
             name,
             parentId: parentId || null,
         });
+    }
+
+    shareWithUser(type: 'file' | 'folder', resourceId: string, email: string, expiry?: string): Observable<ShareWithUserResponse> {
+        return this.http.post<ShareWithUserResponse>(this.url + `/share-with-user/${type}/${resourceId}`, {
+            email,
+            expiry: expiry || null,
+        });
+    }
+
+    shareWithUsers(type: 'file' | 'folder', resourceId: string, emails: string[], expiry?: string): Observable<ShareWithUsersResponse> {
+        return this.http.post<ShareWithUsersResponse>(this.url + `/share-with-users/${type}/${resourceId}`, {
+            emails,
+            expiry: expiry || null,
+        });
+    }
+
+    getSharedWithMe(): Observable<SharedWithMeResponse> {
+        return this.http.get<SharedWithMeResponse>(this.url + '/shared-with-me');
+    }
+
+    getSharedFolderContents(folderId: string): Observable<GetFolderContentsResponse> {
+        return this.http.get<GetFolderContentsResponse>(this.url + `/shared-with-me/${folderId}`);
     }
 }

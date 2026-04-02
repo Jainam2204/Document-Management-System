@@ -1,8 +1,8 @@
 import express from 'express';
 import authMiddleware from '../middlewares/authMiddleware.js';
+import upload from '../middlewares/upload.js';
 import {
-    getUploadUrl,
-    saveFileMetadata,
+    uploadFile,
     getUserFiles,
     createFolderTree,
     getUserFolders,
@@ -19,13 +19,16 @@ import {
     renameFolder,
     generateShareLink,
     getSharedResource,
-    getFileDownloadUrl
+    getFileDownloadUrl,
+    shareResource,
+    shareWithUsers,
+    getSharedWithMe,
+    getSharedFolderContents
 } from '../controllers/fileController.js';
 
 const router = express.Router();
 
-router.post('/upload-url', authMiddleware, getUploadUrl);
-router.post('/save', authMiddleware, saveFileMetadata);
+router.post('/upload', authMiddleware, upload.single('file'), uploadFile);
 router.post('/delete/:id', authMiddleware, updateFileDeleteStatus);
 router.post('/rename/:id', authMiddleware, renameFile);
 router.post('/share/:type/:id', authMiddleware, generateShareLink);
@@ -43,5 +46,9 @@ router.post('/permanent/file/:id', authMiddleware, permanentlyDeleteFile);
 router.post('/permanent/folder/:id', authMiddleware, permanentlyDeleteFolder);
 router.post('/folders/delete/:id', authMiddleware, updateFolderDeleteStatus);
 router.post('/folders/rename/:id', authMiddleware, renameFolder);
+router.post('/share-with-user/:type/:id', authMiddleware, shareResource);
+router.post('/share-with-users/:type/:id', authMiddleware, shareWithUsers);
+router.get('/shared-with-me', authMiddleware, getSharedWithMe);
+router.get('/shared-with-me/:id', authMiddleware, getSharedFolderContents);
 
 export default router;
