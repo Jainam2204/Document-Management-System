@@ -62,13 +62,13 @@ export class AuthService {
     }
 
 
-    saveExpiryInfo(passwordLastUpdatedAt: string, expiryDays: number): void {
+    saveExpiryInfo(passwordLastUpdatedAt: string, expiryDays: number)  {
         localStorage.setItem(this.KEY_LAST_UPDATED, passwordLastUpdatedAt);
         localStorage.setItem(this.KEY_EXPIRY_DAYS, String(expiryDays));
     }
 
 
-    saveAdminStatus(isAdminValue: boolean): void {
+    saveAdminStatus(isAdminValue: boolean)  {
         localStorage.setItem(this.KEY_IS_ADMIN, String(isAdminValue));
     }
 
@@ -99,7 +99,7 @@ export class AuthService {
     }
 
 
-    clearExpiryInfo(): void {
+    clearExpiryInfo()  {
         localStorage.removeItem(this.KEY_LAST_UPDATED);
         localStorage.removeItem(this.KEY_EXPIRY_DAYS);
         localStorage.removeItem(this.KEY_IS_ADMIN); 

@@ -27,7 +27,7 @@ export class StorageService {
         return this.storageSubject.value;
     }
 
-    setStorage(value: StorageInfo): void {
+    setStorage(value: StorageInfo)  {
         this.storageSubject.next(value);
     }
 

@@ -67,7 +67,7 @@ export class FileActionDropdownComponent implements OnChanges {
   showNewFolderDialog = false;
   newFolderName = '';
 
-  ngOnChanges(changes: SimpleChanges): void {
+  ngOnChanges(changes: SimpleChanges)  {
     if (changes['activeItemMenuKey'] && this.variant === 'itemDropdown') {
       if (this.showDropdown && this.activeItemMenuKey !== this.itemMenuKey) {
         this.showDropdown = false;
@@ -85,7 +85,7 @@ export class FileActionDropdownComponent implements OnChanges {
     return 's3Key' in record;
   }
 
-  toggleDropdown(ev?: MouseEvent): void {
+  toggleDropdown(ev?: MouseEvent)  {
     ev?.stopPropagation();
     ev?.preventDefault();
     const next = !this.showDropdown;
@@ -99,7 +99,7 @@ export class FileActionDropdownComponent implements OnChanges {
     this.showDropdown = next;
   }
 
-  closeDropdown(): void {
+  closeDropdown()  {
     if (!this.showDropdown) return;
     this.showDropdown = false;
     if (this.variant === 'itemDropdown') {
@@ -108,7 +108,7 @@ export class FileActionDropdownComponent implements OnChanges {
   }
 
   @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
+  onDocumentClick(event: MouseEvent)  {
     const target = event.target as Node;
     if (this.host.nativeElement.contains(target)) {
       return;
@@ -116,28 +116,28 @@ export class FileActionDropdownComponent implements OnChanges {
     this.closeDropdown();
   }
 
-  onMenuNewFolder(ev: MouseEvent): void {
+  onMenuNewFolder(ev: MouseEvent)  {
     ev.stopPropagation();
     this.onNewFolder();
   }
 
-  onMenuUploadFile(ev: MouseEvent): void {
+  onMenuUploadFile(ev: MouseEvent)  {
     ev.stopPropagation();
     this.onUploadFile();
   }
 
-  onMenuUploadFolder(ev: MouseEvent): void {
+  onMenuUploadFolder(ev: MouseEvent)  {
     ev.stopPropagation();
     this.onUploadFolder();
   }
 
-  onNewFolder(): void {
+  onNewFolder()  {
     this.closeDropdown();
     this.showNewFolderDialog = true;
     this.newFolderName = '';
   }
 
-  onUploadFile(): void {
+  onUploadFile()  {
     this.closeDropdown();
     const input = document.createElement('input');
     input.type = 'file';
@@ -150,7 +150,7 @@ export class FileActionDropdownComponent implements OnChanges {
     input.click();
   }
 
-  onUploadFolder(): void {
+  onUploadFolder()  {
     this.closeDropdown();
     const input = document.createElement('input');
     input.type = 'file';
@@ -166,7 +166,7 @@ export class FileActionDropdownComponent implements OnChanges {
     input.click();
   }
 
-  emitRename(ev: MouseEvent): void {
+  emitRename(ev: MouseEvent)  {
     ev.stopPropagation();
     this.closeDropdown();
     const data = this.targetRecordForItemActions();
@@ -175,7 +175,7 @@ export class FileActionDropdownComponent implements OnChanges {
     }
   }
 
-  emitShare(ev: MouseEvent): void {
+  emitShare(ev: MouseEvent)  {
     ev.stopPropagation();
     this.closeDropdown();
     const data = this.targetRecordForItemActions();
@@ -184,7 +184,7 @@ export class FileActionDropdownComponent implements OnChanges {
     }
   }
 
-  emitDownload(ev: MouseEvent): void {
+  emitDownload(ev: MouseEvent)  {
     ev.stopPropagation();
     this.closeDropdown();
     const data = this.targetRecordForItemActions();
@@ -193,7 +193,7 @@ export class FileActionDropdownComponent implements OnChanges {
     }
   }
 
-  emitDelete(ev: MouseEvent): void {
+  emitDelete(ev: MouseEvent)  {
     ev.stopPropagation();
     this.closeDropdown();
     const data = this.targetRecordForItemActions();
@@ -212,14 +212,14 @@ export class FileActionDropdownComponent implements OnChanges {
     return null;
   }
 
-  createFolder(): void {
+  createFolder()  {
     if (this.newFolderName.trim()) {
       this.action.emit({ type: 'createFolder', data: { name: this.newFolderName.trim() } });
       this.closeDialog();
     }
   }
 
-  closeDialog(): void {
+  closeDialog()  {
     this.showNewFolderDialog = false;
     this.newFolderName = '';
   }

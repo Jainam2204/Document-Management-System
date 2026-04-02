@@ -5,11 +5,13 @@ import { User } from '../../models/User';
 import { AdminService } from '../../../../services/admin/admin.service';
 import { AuthService } from '../../../../services/auth/auth.service';
 import { ToastService } from '../../../../services/toast/toast.service';
+import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
+import { HttpErrorResponse } from '@angular/common/http';
 
 
 @Component({
     selector: 'app-admin',
-    imports: [CommonModule],
+    imports: [CommonModule, SizePipe],
     templateUrl: './admin.component.html',
     styleUrls: ['./admin.component.css']
 })
@@ -28,11 +30,11 @@ export class AdminComponent implements OnInit {
         private router: Router
     ) { }
 
-    ngOnInit(): void {
+    ngOnInit()  {
         this.loadUsers();
     }
 
-    loadUsers(): void {
+    loadUsers()  {
         this.loading = true;
         this.errorMessage = '';
 
@@ -54,7 +56,7 @@ export class AdminComponent implements OnInit {
     }
 
 
-    toggleAdmin(user: User, event: Event): void {
+    toggleAdmin(user: User, event: Event)  {
         const checkbox = event.target as HTMLInputElement;
         const newIsAdmin = checkbox.checked;
 
@@ -76,19 +78,14 @@ export class AdminComponent implements OnInit {
     }
 
 
-    formatStorage(bytes: number): string {
-        if (!bytes || bytes === 0) return '0 MB';
-        const mb = bytes / (1024 * 1024);
-        return mb.toFixed(1) + ' MB';
-    }
-
-
-    logout(): void {
+    logout()  {
         this.authService.logout().subscribe({
-            next: () => {
+            next: (res) => {
+                this.toast.success(res.message);
                 this.router.navigate(['/auth/login']);
             },
-            error: () => {
+            error: (err: HttpErrorResponse) => {
+                this.toast.error(err?.error?.message);
                 this.router.navigate(['/auth/login']);
             }
         });

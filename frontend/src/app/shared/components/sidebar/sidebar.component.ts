@@ -164,7 +164,7 @@ export class SidebarComponent implements OnDestroy {
         ).subscribe();
     }
 
-    onFolderSelected(event: any): void {
+    onFolderSelected(event: any)  {
         const fileList: FileList = event.target.files;
 
         if (!fileList || fileList.length === 0) {
@@ -340,7 +340,7 @@ export class SidebarComponent implements OnDestroy {
         });
     }
 
-    private uploadFolder(files: File[], parentId: string | null): void {
+    private uploadFolder(files: File[], parentId: string | null)  {
         if (!files || files.length === 0) {
             this.toast.error('No folder selected.');
             return;
@@ -415,7 +415,7 @@ export class SidebarComponent implements OnDestroy {
     private uploadFilesSequentially(
         fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
         pathToIdMap: { [path: string]: string }
-    ): void {
+    )  {
         let index = 0;
         let successCount = 0;
         let failureCount = 0;
@@ -459,7 +459,7 @@ export class SidebarComponent implements OnDestroy {
         folderId: string,
         relativePath: string,
         callback: (success: boolean) => void
-    ): void {
+    )  {
         this.fileService.getUploadUrl(file.name, file.type, file.size, relativePath).subscribe({
             next: (urlRes) => {
                 if (!urlRes?.success) {

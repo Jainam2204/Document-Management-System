@@ -75,6 +75,19 @@ const updateFolderSizeAncestors = async (folderId, size, ownerId) => {
     );
 };
 
+const updateUserStorage = async (userId, size) => {
+    try {
+        if (!userId || !size) {
+            return;
+        }
+        console.log('storage size : ', size);
+        await User.findByIdAndUpdate(userId, { $inc: { storageUsed: size } });
+
+    } catch (error) {
+        console.error('Error : ', error);
+    }
+}
+
 
 const getFolderSubtreeSize = async (folderId, ownerId, includeDeleted = false) => {
     const folder = await Folder.findOne({ _id: folderId, owner: ownerId })
@@ -313,8 +326,8 @@ export const getUploadUrl = async (req, res) => {
         let normalizedPath = '';
         if (relativePath && typeof relativePath === 'string') {
             normalizedPath = relativePath
-    .replace(/\\/g, '/')
-    .replace(/(^\/+|\/+$)/g, '');
+                .replace(/\\/g, '/')
+                .replace(/(^\/+|\/+$)/g, '');
             if (normalizedPath) {
                 normalizedPath = `${normalizedPath}/`;
             }

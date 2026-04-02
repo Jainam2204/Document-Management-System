@@ -43,23 +43,23 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
   }
 
   @HostListener('document:click', ['$event.target'])
-  onDocumentClick(target: HTMLElement): void {
+  onDocumentClick(target: HTMLElement)  {
     if (!this.profileMenu?.nativeElement.contains(target)) {
       this.profileMenuOpen = false;
     }
   }
 
-  toggleProfileMenu(event: MouseEvent): void {
+  toggleProfileMenu(event: MouseEvent)  {
     event.stopPropagation();
     this.profileMenuOpen = !this.profileMenuOpen;
   }
 
-  updateProfile(): void {
+  updateProfile()  {
     this.profileMenuOpen = false;
     this.router.navigate(['/auth/reset-password']);
   }
 
-  logout(): void {
+  logout()  {
     this.profileMenuOpen = false;
     this.authService.logout().subscribe({
       next: () => {

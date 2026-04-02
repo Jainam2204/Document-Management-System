@@ -2,14 +2,14 @@ import mongoose from "mongoose";
 
 const activityLogSchema = new mongoose.Schema(
     {
-        user: {
+        userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         },
 
         action: {
             type: String,
-            enum: ["UPLOAD", "DELETE", "DOWNLOAD", "SHARE", "RENAME", "LOGIN"]
+            enum: ["UPLOAD", "DELETE", "DOWNLOAD", "SHARE", "RENAME", "LOGIN", "REGISTER", "CREATE"]
         },
 
         file: {
