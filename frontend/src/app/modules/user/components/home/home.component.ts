@@ -306,14 +306,27 @@ export class HomeComponent implements OnInit, OnDestroy {
       case 'uploadFolder':
         this.uploadFolder(event.data, parentId);
         break;
+      case 'download':
+        if (this.isFileRecord(event.data)) {
+          this.downloadFile(event.data);
+        }
+        break;
       case 'rename':
-        this.openActionDialog('rename', event.data);
+        if (event.data) {
+          this.openActionDialog('rename', event.data);
+        }
         break;
       case 'share':
-        this.openActionDialog('share', event.data);
+        if (event.data) {
+          this.openActionDialog('share', event.data);
+        }
         break;
       case 'delete':
-        this.openActionDialog('delete', event.data);
+        if (event.data) {
+          this.openActionDialog('delete', event.data);
+        }
+        break;
+      default:
         break;
     }
   }
@@ -526,6 +539,30 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
+
+  private downloadFile(file: FileRecord): void {
+    this.fileService.downloadFile(file._id).subscribe({
+      next: (res) => {
+        if (!res?.success || !res.downloadUrl) {
+          this.toast.error(res?.message || 'Unable to download file.');
+          return;
+        }
+
+        const link = document.createElement('a');
+        link.href = res.downloadUrl;
+        link.download = file.name;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      },
+      error: (err) => {
+        console.error('Download error:', err);
+        this.toast.error(err?.error?.message || 'Unable to download file.');
+      }
+    });
+  }
+
   private uploadFolder(files: File[], parentId: string | null): void {
     if (!files || files.length === 0) {
       this.toast.error('No folder selected.');
@@ -581,15 +618,12 @@ export class HomeComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      // The folder path inside the selected root folder (for DB folderId mapping).
       const folderPath = parts.length > 2 ? parts.slice(1, -1).join('/') : '';
 
-      // The upload path for S3 includes the selected root folder and nested folders.
       const relativeDirPath = parts.slice(0, -1).join('/');
 
       fileItems.push({ file, folderPath, relativePath: relativeDirPath });
 
-      // Add all ancestor folder paths so backend creates nested folders.
       for (let i = 2; i < parts.length; i++) {
         const pathPart = parts.slice(1, i).join('/');
         if (pathPart) {

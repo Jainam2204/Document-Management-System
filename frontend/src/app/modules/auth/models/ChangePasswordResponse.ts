@@ -1,10 +1,10 @@
 import { ErrorResponse } from "../../../shared/models/BackendResponse";
-import { PasswordExpiryInfo } from "./PasswordExpiryInfo";
 
 export interface ChangePasswordSuccessResponse {
     success: true;
     message: string;
-    passwordExpiry?: PasswordExpiryInfo;
+    passwordLastUpdatedAt?: string;
+    expiryDays?: number;
 }
 
 export type ChangePasswordResponse = ChangePasswordSuccessResponse | ErrorResponse;

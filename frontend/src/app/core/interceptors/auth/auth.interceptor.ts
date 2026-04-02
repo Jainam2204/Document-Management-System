@@ -5,7 +5,6 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment.development';
 import { GetCookieService } from '../../../services/cookie/get-cookie.service';
 import { ToastService } from '../../../services/toast/toast.service';
-// import { LoginResponse } from '../../../modules/auth/models/LoginResponse';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
     const http = inject(HttpClient);

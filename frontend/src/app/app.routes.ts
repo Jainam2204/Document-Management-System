@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './modules/user/components/main-layout/main-layout.component';
 import { unauthGuard } from './core/guards/unauth/unauth.guard';
 import { authGuard } from './core/guards/auth/auth.guard';
+import { adminGuard } from './core/guards/admin/admin.guard';
 import { passwordExpiryGuard } from './core/guards/password-expiry/password-expiry.guard';
 
 export const routes: Routes = [
@@ -14,6 +15,13 @@ export const routes: Routes = [
             },
         ]
     },
+
+    {
+        path: 'admin',
+        canActivate: [authGuard, adminGuard],
+        loadChildren: () => import('./modules/admin/admin-routing.module').then(m => m.AdminRoutingModule)
+    },
+
     {
         path: '',
         component: MainLayoutComponent,

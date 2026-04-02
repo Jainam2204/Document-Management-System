@@ -44,6 +44,12 @@ interface SaveFileResponse {
     file: FileRecord;
 }
 
+interface DownloadUrlResponse {
+    success: boolean;
+    downloadUrl: string;
+    message?: string;
+}
+
 interface GetFilesResponse {
     success: boolean;
     files: FileRecord[];
@@ -133,6 +139,10 @@ export class FileService {
         );
     }
 
+  
+    downloadFile(fileId: string): Observable<DownloadUrlResponse> {
+        return this.http.get<DownloadUrlResponse>(this.url + '/download/' + fileId);
+    }
 
     createFolderTree(rootName: string, subPaths: string[], parentFolderId?: string | null): Observable<CreateFolderTreeResponse> {
         const body: any = { rootName, subPaths };
