@@ -67,6 +67,8 @@ export const login = async (req, res) => {
 
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
+        console.log('verification code : ', verificationCode);
+
         existingUser.verificationCode = verificationCode;
         existingUser.verificationCodeExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
         existingUser.isVerified = false;
@@ -113,7 +115,12 @@ export const register = async (req, res) => {
         newUser.passwordChangedAt = now;
         newUser.passwordExpiryDuration = PASSWORD_EXPIRY_DAYS;
 
-        await User.create(newUser);
+        const user = await User.create(newUser);
+
+        await ActivityLog.create({
+            userId: user._id,
+            action: "REGISTER"
+        });
 
         return res.status(200).json({
             success: true,
@@ -283,7 +290,7 @@ export const verify = async (req, res) => {
         });
 
         await ActivityLog.create({
-            user: existingUser._id,
+            userId: existingUser._id,
             action: "LOGIN"
         });
 

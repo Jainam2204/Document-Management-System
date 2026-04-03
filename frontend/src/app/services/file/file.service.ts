@@ -148,6 +148,7 @@ export class FileService {
 
 
     downloadFile(fileId: string): Observable<DownloadUrlResponse> {
+        console.log('url: ', this.url + '/download/' + fileId);
         return this.http.get<DownloadUrlResponse>(this.url + '/download/' + fileId);
     }
 

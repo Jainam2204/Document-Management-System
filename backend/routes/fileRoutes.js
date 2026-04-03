@@ -17,8 +17,8 @@ import {
     renameFile,
     updateFolderDeleteStatus,
     renameFolder,
-    generateShareLink,
-    getSharedResource,
+    // generateShareLink,
+    // getSharedResource,
     getFileDownloadUrl,
     shareResource,
     shareWithUsers,
@@ -31,8 +31,8 @@ const router = express.Router();
 router.post('/upload', authMiddleware, upload.single('file'), uploadFile);
 router.post('/delete/:id', authMiddleware, updateFileDeleteStatus);
 router.post('/rename/:id', authMiddleware, renameFile);
-router.post('/share/:type/:id', authMiddleware, generateShareLink);
-router.get('/share/:token', getSharedResource);
+// router.post('/share/:type/:id', authMiddleware, generateShareLink);
+// router.get('/share/:token', getSharedResource);
 router.get('/download/:id', authMiddleware, getFileDownloadUrl);
 router.post('/create-folder-tree', authMiddleware, createFolderTree);
 router.post('/folders', authMiddleware, createFolder);

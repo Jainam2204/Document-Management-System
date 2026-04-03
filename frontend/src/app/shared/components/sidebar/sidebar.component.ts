@@ -105,118 +105,6 @@ export class SidebarComponent implements OnDestroy {
     → determine each file’s parent folder → request S3 upload URL → upload file to S3 → save file metadata in database → track upload progress → handle errors if any → on completion show success and refresh UI
     */
 
-    onFileSelected(event: any) {
-        const file: File = event.target.files[0];
-        if (!file) return;
-
-        const folderId = this.getFolderId();
-        event.target.value = '';
-
-        this.uploading = true;
-        this.toast.warning('Uploading ' + file.name + '...');
-
-        this.fileService.uploadFile(file, folderId).subscribe({
-            next: (res) => {
-                if (res?.success) {
-                    this.toast.success(file.name + ' uploaded successfully!');
-                    this.storageService.refreshStorage();
-                } else {
-                    this.toast.error(res?.message || 'Upload failed');
-                }
-                this.uploading = false;
-            },
-            error: (err) => {
-                this.toast.error(err?.error?.message || 'Upload failed');
-                this.uploading = false;
-            }
-        });
-    }
-
-    onFolderSelected(event: any) {
-        const fileList: FileList = event.target.files;
-
-        if (!fileList || fileList.length === 0) {
-            this.toast.error("No folder selected or browser not supported");
-            return;
-        }
-
-        const files: File[] = Array.from(fileList);
-        event.target.value = '';
-
-        const firstFile = files[0];
-        const firstPath = (firstFile as any)?.webkitRelativePath;
-
-        if (!firstPath) {
-            this.toast.error("Folder upload not supported in this browser");
-            return;
-        }
-
-        const rootName = firstPath.split('/')[0];
-
-        const folderPaths = new Set<string>();
-
-        for (const file of files) {
-            const relativePath = (file as any)?.webkitRelativePath;
-            if (!relativePath) continue;
-            const parts = relativePath.split('/');
-            for (let i = 2; i < parts.length; i++) {
-                folderPaths.add(parts.slice(1, i).join('/'));
-            }
-        }
-
-        this.uploadCancelled = false;
-        this.uploading = true;
-        this.toast.warning(`Uploading folder "${rootName}" (${files.length} files)...`);
-
-        this.fileService.createFolderTree(rootName, Array.from(folderPaths)).pipe(
-            tap(treeRes => {
-                if (!treeRes?.success) {
-                    throw new Error("Failed to create folder structure");
-                }
-            }),
-            concatMap(treeRes => {
-                const pathToIdMap = treeRes.pathToIdMap;
-                let uploaded = 0;
-
-                return from(files).pipe(
-                    takeWhile(() => !this.uploadCancelled),
-                    concatMap(file => {
-                        const relativePath = (file as any).webkitRelativePath;
-                        const parts = relativePath.split('/');
-                        const parentSubPath = parts.slice(1, -1).join('/');
-                        const folderId = parentSubPath === '' ? pathToIdMap[''] : pathToIdMap[parentSubPath];
-                        const relativeDir = parts.slice(0, -1).join('/');
-
-                        return this.fileService.uploadFile(file, folderId, relativeDir).pipe(
-                            tap(() => {
-                                uploaded++;
-                                this.toast.success(`Uploaded ${uploaded}/${files.length}`);
-                            })
-                        );
-                    })
-                );
-            }),
-            catchError(err => {
-                console.error(err);
-                this.toast.error("Folder upload failed");
-                return EMPTY;
-            })
-        ).subscribe({
-            complete: () => {
-                if (this.uploadCancelled) {
-                    this.toast.warning('Upload cancelled. Files uploaded so far are saved.');
-                } else {
-                    this.toast.success(`Folder uploaded successfully!`);
-                }
-                this.storageService.refreshStorage();
-                this.uploadCancelled = false;
-                this.uploading = false;
-            },
-            error: () => {
-                this.uploading = false;
-            }
-        });
-    }
 
     setActive(item: string) {
         this.activeItem = item;
@@ -280,6 +168,7 @@ export class SidebarComponent implements OnDestroy {
     }
 
     private uploadFolder(files: File[], parentId: string | null)  {
+        // console.log('called');
         if (!files || files.length === 0) {
             this.toast.error('No folder selected.');
             return;
@@ -369,7 +258,7 @@ export class SidebarComponent implements OnDestroy {
                 this.uploading = false;
                 this.uploadCancelled = false;
                 this.storageService.refreshStorage();
-                this.toast.warning(`Upload cancelled. ${successCount} file(s) were saved.`);
+                this.toast.warning(`Upload cancelled. ${successCount} files were saved.`);
                 return;
             }
 

@@ -5,8 +5,9 @@ import File from '../models/File.js';
 import Folder from '../models/Folder.js';
 import User from '../models/User.js';
 import Counter from '../models/Counter.js';
-import ShareLink from '../models/ShareLink.js';
+// import ShareLink from '../models/ShareLink.js';
 import Share from '../models/Share.js';
+import ActivityLog from '../models/ActivityLog.js';
 import { generateToken } from '../utils/generateToken.js';
 import { generateDownloadUrl } from '../utils/generateDownloadURL.js';
 import { getUniqueFileName, folderNameExists, findExistingFolder } from '../utils/uniqueName.js';
@@ -76,12 +77,9 @@ const updateFolderSizeAncestors = async (folderId, size, ownerId) => {
 
 const updateUserStorage = async (userId, size) => {
     try {
-        if (!userId || size === undefined || size === null || size === 0) {
-            return;
-        }
+        if (!userId || !size) return;
 
         if (size < 0) {
-           
             await User.findByIdAndUpdate(userId, [
                 {
                     $set: {
@@ -90,24 +88,25 @@ const updateUserStorage = async (userId, size) => {
                         }
                     }
                 }
-            ]);
+            ], { updatePipeline: true });
         } else {
-            await User.findByIdAndUpdate(userId, { $inc: { storageUsed: size } });
+            await User.findByIdAndUpdate(userId, {
+                $inc: { storageUsed: size }
+            });
         }
 
     } catch (error) {
         console.error('Failed to update user storage:', error);
         throw error;
     }
-}
-
+};
 
 const getFolderSubtreeSize = async (folderId, ownerId, includeDeleted = false) => {
     const folder = await Folder.findOne({ _id: folderId, owner: ownerId })
         .select('size')
         .lean();
 
-  
+
     if (folder && folder.size > 0) {
         return folder.size;
     }
@@ -367,14 +366,14 @@ export const uploadFile = async (req, res) => {
         const fileSize = req.file.size;
         const fileType = req.file.mimetype;
 
-        
+
         const updatedUser = await User.findOneAndUpdate(
             {
                 _id: user._id,
                 $expr: {
                     $lte: [
-                        { $add: ['$storageUsed', fileSize] }, 
-                        '$storageLimit'                       
+                        { $add: ['$storageUsed', fileSize] },
+                        '$storageLimit'
                     ]
                 }
             },
@@ -389,14 +388,13 @@ export const uploadFile = async (req, res) => {
             });
         }
 
-        const userPrefix = `${user.name}_${user.id}`;
+        const userPrefix = `${user.name}_${user._id}`;
 
         let folderPath = '';
 
         if (relativePath && typeof relativePath === 'string') {
-            folderPath = relativePath
-                .replace(/\\/g, '/')
-                .replace(/(^\/+|\/+$)/g, '');
+            folderPath = relativePath.replace(/\\/g, '/').replace(/(^\/+|\/+$)/g, '');
+
             if (folderPath) {
                 folderPath = folderPath + '/';
             }
@@ -434,12 +432,13 @@ export const uploadFile = async (req, res) => {
                 folder: folderId || null,
                 owner: user._id,
             });
+
         } catch (dbError) {
             await User.findByIdAndUpdate(user._id, { $inc: { storageUsed: -fileSize } })
                 .catch(err => console.error('Failed to rollback storageUsed after DB error:', err));
 
             await deleteS3Object(s3Key)
-                .catch(err => console.error('Failed to clean up orphaned S3 object after DB error:', err));
+                .catch(err => console.error('Failed to delete S3 object after DB error:', err));
 
             throw dbError;
         }
@@ -447,6 +446,12 @@ export const uploadFile = async (req, res) => {
         if (folderId) {
             await updateFolderSizeAncestors(folderId, fileSize, user._id);
         }
+
+        await ActivityLog.create({
+            userId: user._id,
+            action: "UPLOAD",
+            fileId: file._id
+        });
 
         res.status(201).json({
             success: true,
@@ -464,9 +469,11 @@ export const uploadFile = async (req, res) => {
 
 export const getFileDownloadUrl = async (req, res) => {
     try {
+        const id = req.params.id;
+        console.log('fileId: ', id);
+
         const file = await File.findOne({
-            _id: req.params.id,
-            owner: req.user._id,
+            _id: id,
             isDeleted: false,
         }).lean();
 
@@ -478,6 +485,12 @@ export const getFileDownloadUrl = async (req, res) => {
         }
 
         const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
+
+        await ActivityLog.create({
+            userId: file.owner,
+            action: "DOWNLOAD",
+            fileId: file._id
+        });
 
         return res.status(200).json({
             success: true,
@@ -566,6 +579,12 @@ export const createFolderTree = async (req, res) => {
                 parentFolder: parentFolder ? parentFolder._id : null,
                 owner: userId,
             });
+
+            await ActivityLog.create({
+                userId: userId,
+                action: "CREATE",
+                folderId: rootFolder._id
+            });
         }
 
         pathToIdMap[''] = rootFolder._id.toString();
@@ -607,6 +626,12 @@ export const createFolderTree = async (req, res) => {
                     name: folderName,
                     parentFolder: parentId,
                     owner: userId,
+                });
+
+                await ActivityLog.create({
+                    userId: userId,
+                    action: "CREATE",
+                    folderId: folder._id
                 });
 
                 pathToIdMap[relativePath] = folder._id.toString();
@@ -785,6 +810,12 @@ export const restoreFile = async (req, res) => {
 
         await updateUserStorage(req.user._id, file.size || 0);
 
+        await ActivityLog.create({
+            userId: file.owner,
+            action: "RESTORE",
+            folderId: file._id
+        });
+
         return res.status(200).json({
             success: true,
             message: 'File restored successfully',
@@ -820,6 +851,12 @@ export const restoreFolder = async (req, res) => {
 
         await restoreFolderTree(folder._id, req.user._id);
 
+        await ActivityLog.create({
+            userId: folder.owner,
+            action: "RESTORE",
+            folderId: folder._id
+        });
+
         return res.status(200).json({
             success: true,
             message: 'Folder restored successfully',
@@ -851,6 +888,12 @@ export const permanentlyDeleteFile = async (req, res) => {
 
         await permanentlyDeleteFileById(file._id, req.user._id);
 
+        await ActivityLog.create({
+            userId: file.owner,
+            action: "DELETE",
+            fileId: file._id
+        });
+
         return res.status(200).json({
             success: true,
             message: 'File permanently deleted',
@@ -881,6 +924,12 @@ export const permanentlyDeleteFolder = async (req, res) => {
         }
 
         await permanentlyDeleteFolderById(folder._id, req.user._id);
+
+        await ActivityLog.create({
+            userId: folder.owner,
+            action: "DELETE",
+            folderId: folder._id
+        });
 
         return res.status(200).json({
             success: true,
@@ -930,6 +979,12 @@ export const createFolder = async (req, res) => {
             owner: userId,
         });
 
+        await ActivityLog.create({
+            userId: userId,
+            action: "CREATE",
+            folderId: folder._id
+        })
+
         res.status(201).json({
             success: true,
             message: 'Folder created successfully',
@@ -973,6 +1028,12 @@ export const updateFileDeleteStatus = async (req, res) => {
 
         await file.save();
 
+        await ActivityLog.create({
+            userId: file.owner,
+            action: "SOFT_DELETE",
+            fileId: file._id
+        });
+
         return res.status(200).json({
             success: true,
             message: 'File moved to trash successfully'
@@ -1005,6 +1066,12 @@ export const updateFolderDeleteStatus = async (req, res) => {
         }
 
         await softDeleteFolderTree(folder._id, req.user._id);
+
+        await ActivityLog.create({
+            userId: folder.owner,
+            action: "SOFT_DELETE",
+            folderId: folder._id
+        });
 
         return res.status(200).json({
             success: true,
@@ -1074,6 +1141,12 @@ export const renameFile = async (req, res) => {
         file.s3Key = newS3Key;
         await file.save();
 
+        await ActivityLog.create({
+            userId: file.owner,
+            action: "RENAME",
+            fileId: file._id
+        });
+
         return res.status(200).json({
             success: true,
             message: 'File renamed successfully',
@@ -1128,7 +1201,7 @@ export const renameFolder = async (req, res) => {
         const oldS3Prefix = `uploads/${userPrefix}/${oldFolderRelativePath}`;
 
         const oldFolderName = folder.name;
-        const parentPath = oldFolderRelativePath.slice(0, -(oldFolderName.length + 1)); 
+        const parentPath = oldFolderRelativePath.slice(0, -(oldFolderName.length + 1));
         const newFolderRelativePath = parentPath + trimmedName + '/';
         const newS3Prefix = `uploads/${userPrefix}/${newFolderRelativePath}`;
 
@@ -1163,6 +1236,12 @@ export const renameFolder = async (req, res) => {
             await file.save();
         }
 
+        await ActivityLog.create({
+            userId: folder.owner,
+            action: "RENAME",
+            folderId: folder._id
+        });
+
         return res.status(200).json({
             success: true,
             message: 'Folder renamed successfully',
@@ -1178,180 +1257,180 @@ export const renameFolder = async (req, res) => {
 }
 
 
-export const generateShareLink = async (req, res) => {
-    try {
-        const { expiry } = req.body;
-        const { type, id } = req.params;
+// export const generateShareLink = async (req, res) => {
+//     try {
+//         const { expiry } = req.body;
+//         const { type, id } = req.params;
 
-        if (!['file', 'folder'].includes(type)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid resource type for sharing'
-            });
-        }
+//         if (!['file', 'folder'].includes(type)) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Invalid resource type for sharing'
+//             });
+//         }
 
-        const Model = type === 'file' ? File : Folder;
-        const resource = await Model.findOne({
-            _id: id,
-            owner: req.user._id,
-            isDeleted: false
-        });
+//         const Model = type === 'file' ? File : Folder;
+//         const resource = await Model.findOne({
+//             _id: id,
+//             owner: req.user._id,
+//             isDeleted: false
+//         });
 
-        if (!resource) {
-            return res.status(404).json({
-                success: false,
-                message: `${type.charAt(0).toUpperCase() + type.slice(1)} not found`
-            });
-        }
+//         if (!resource) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: `${type.charAt(0).toUpperCase() + type.slice(1)} not found`
+//             });
+//         }
 
-        const expiresAt = expiry ? new Date(expiry) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid expiry date'
-            });
-        }
+//         const expiresAt = expiry ? new Date(expiry) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+//         if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'Invalid expiry date'
+//             });
+//         }
 
-        const expiresInSeconds = Math.min(
-            Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
-            604800
-        );
+//         const expiresInSeconds = Math.min(
+//             Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
+//             604800
+//         );
 
-        const token = generateToken();
-        await ShareLink.create({
-            resourceType: type,
-            resourceId: resource._id,
-            token,
-            expiresAt,
-            createdBy: req.user._id
-        });
+//         const token = generateToken();
+//         await ShareLink.create({
+//             resourceType: type,
+//             resourceId: resource._id,
+//             token,
+//             expiresAt,
+//             createdBy: req.user._id
+//         });
 
-        if (type === 'file') {
-            try {
-                const headCommand = new HeadObjectCommand({
-                    Bucket: process.env.AWS_BUCKET_NAME,
-                    Key: resource.s3Key
-                });
-                await s3.send(headCommand);
-            } catch (headError) {
-                console.error('Share file head object failed:', headError);
-                return res.status(404).json({
-                    success: false,
-                    message: 'Shared file does not exist in S3'
-                });
-            }
+//         if (type === 'file') {
+//             try {
+//                 const headCommand = new HeadObjectCommand({
+//                     Bucket: process.env.AWS_BUCKET_NAME,
+//                     Key: resource.s3Key
+//                 });
+//                 await s3.send(headCommand);
+//             } catch (headError) {
+//                 console.error('Share file head object failed:', headError);
+//                 return res.status(404).json({
+//                     success: false,
+//                     message: 'Shared file does not exist in S3'
+//                 });
+//             }
 
-            const downloadUrl = await generateDownloadUrl(resource.s3Key, expiresInSeconds, resource.name);
-            return res.status(201).json({
-                success: true,
-                url: downloadUrl,
-                expiresAt: expiresAt.toISOString()
-            });
-        }
+//             const downloadUrl = await generateDownloadUrl(resource.s3Key, expiresInSeconds, resource.name);
+//             return res.status(201).json({
+//                 success: true,
+//                 url: downloadUrl,
+//                 expiresAt: expiresAt.toISOString()
+//             });
+//         }
 
-        const url = `${req.protocol}://${req.get('host')}/api/files/share/${token}`;
-        return res.status(201).json({
-            success: true,
-            url,
-            expiresAt: expiresAt.toISOString()
-        });
-    } catch (err) {
-        console.error('Error : ', err);
-        res.status(500).json({
-            success: false,
-            message: 'Error occured while generating share link'
-        });
-    }
-}
+//         const url = `${req.protocol}://${req.get('host')}/api/files/share/${token}`;
+//         return res.status(201).json({
+//             success: true,
+//             url,
+//             expiresAt: expiresAt.toISOString()
+//         });
+//     } catch (err) {
+//         console.error('Error : ', err);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error occured while generating share link'
+//         });
+//     }
+// }
 
 
-export const getSharedResource = async (req, res) => {
-    try {
-        const { token } = req.params;
-        const shareLink = await ShareLink.findOne({
-            token,
-            expiresAt: { $gt: new Date() }
-        });
+// export const getSharedResource = async (req, res) => {
+//     try {
+//         const { token } = req.params;
+//         const shareLink = await ShareLink.findOne({
+//             token,
+//             expiresAt: { $gt: new Date() }
+//         });
 
-        if (!shareLink) {
-            return res.status(404).json({
-                success: false,
-                message: 'Share link is invalid or expired'
-            });
-        }
+//         if (!shareLink) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Share link is invalid or expired'
+//             });
+//         }
 
-        if (shareLink.resourceType === 'file') {
-            const file = await File.findOne({
-                _id: shareLink.resourceId,
-                isDeleted: false
-            });
+//         if (shareLink.resourceType === 'file') {
+//             const file = await File.findOne({
+//                 _id: shareLink.resourceId,
+//                 isDeleted: false
+//             });
 
-            if (!file) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Shared file not found'
-                });
-            }
+//             if (!file) {
+//                 return res.status(404).json({
+//                     success: false,
+//                     message: 'Shared file not found'
+//                 });
+//             }
 
-            try {
-                const headCommand = new HeadObjectCommand({
-                    Bucket: process.env.AWS_BUCKET_NAME,
-                    Key: file.s3Key
-                });
-                await s3.send(headCommand);
-            } catch (headError) {
-                console.error('Shared file head check failed:', headError);
-                return res.status(404).json({
-                    success: false,
-                    message: 'Shared file does not exist in S3'
-                });
-            }
+//             try {
+//                 const headCommand = new HeadObjectCommand({
+//                     Bucket: process.env.AWS_BUCKET_NAME,
+//                     Key: file.s3Key
+//                 });
+//                 await s3.send(headCommand);
+//             } catch (headError) {
+//                 console.error('Shared file head check failed:', headError);
+//                 return res.status(404).json({
+//                     success: false,
+//                     message: 'Shared file does not exist in S3'
+//                 });
+//             }
 
-            const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
-            return res.redirect(downloadUrl);
-        }
+//             const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
+//             return res.redirect(downloadUrl);
+//         }
 
-        const folder = await Folder.findOne({
-            _id: shareLink.resourceId,
-            isDeleted: false
-        });
+//         const folder = await Folder.findOne({
+//             _id: shareLink.resourceId,
+//             isDeleted: false
+//         });
 
-        if (!folder) {
-            return res.status(404).json({
-                success: false,
-                message: 'Shared folder not found'
-            });
-        }
+//         if (!folder) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'Shared folder not found'
+//             });
+//         }
 
-        const files = await File.find({
-            folder: folder._id,
-            isDeleted: false
-        });
+//         const files = await File.find({
+//             folder: folder._id,
+//             isDeleted: false
+//         });
 
-        const sharedFiles = await Promise.all(
-            files.map(async (file) => ({
-                id: file._id,
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                downloadUrl: await generateDownloadUrl(file.s3Key, 300, file.name)
-            }))
-        );
+//         const sharedFiles = await Promise.all(
+//             files.map(async (file) => ({
+//                 id: file._id,
+//                 name: file.name,
+//                 type: file.type,
+//                 size: file.size,
+//                 downloadUrl: await generateDownloadUrl(file.s3Key, 300, file.name)
+//             }))
+//         );
 
-        return res.status(200).json({
-            success: true,
-            type: 'folder',
-            folder: { id: folder._id, name: folder.name },
-            files: sharedFiles
-        });
-    } catch (err) {
-        console.error('Error : ', err);
-        res.status(500).json({
-            success: false,
-            message: 'Error occured while resolving share link'
-        });
-    }
-}
+//         return res.status(200).json({
+//             success: true,
+//             type: 'folder',
+//             folder: { id: folder._id, name: folder.name },
+//             files: sharedFiles
+//         });
+//     } catch (err) {
+//         console.error('Error : ', err);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Error occured while resolving share link'
+//         });
+//     }
+// }
 
 
 export const shareResource = async (req, res) => {
@@ -1359,7 +1438,7 @@ export const shareResource = async (req, res) => {
         const { type, id } = req.params;
         const { email, expiry } = req.body;
 
-        if (!['file', 'folder'].includes(type)) {
+        if (type !== 'file' && type !== 'folder') {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid resource type'
@@ -1457,14 +1536,14 @@ export const shareWithUsers = async (req, res) => {
         const { type, id } = req.params;
         const { emails, expiry } = req.body;
 
-        if (!['file', 'folder'].includes(type)) {
+        if (type !== 'file' && type !== 'folder') {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid resource type'
             });
         }
 
-        if (!emails || !Array.isArray(emails) || emails.length === 0) {
+        if (!emails || emails.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: 'At least one email is required'
@@ -1506,6 +1585,10 @@ export const shareWithUsers = async (req, res) => {
                 const trimmedEmail = email.trim().toLowerCase();
 
                 if (trimmedEmail === req.user.email.toLowerCase()) {
+                    res.status(400).json({
+                        success: false,
+                        message: "Cannot share with yourself"
+                    })
                     results.failed.push({ email: trimmedEmail, reason: 'Cannot share with yourself' });
                     continue;
                 }
@@ -1537,6 +1620,15 @@ export const shareWithUsers = async (req, res) => {
                     ownerEmail: req.user.email,
                     expiresAt
                 });
+
+                const user = await User.findOne({_id: resource.owner});
+
+                await sendEmail({
+                    to: targetUser.email,
+                    subject: `${type} shared with you: `,
+                    html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
+                });
+
 
                 results.successful.push(trimmedEmail);
 
@@ -1627,6 +1719,60 @@ export const getSharedWithMe = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch shared items'
+        });
+    }
+};
+
+export const getSharedFolderContents = async (req, res) => {
+    try {
+        const folderId = req.params.id;
+
+        if (!folderId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Folder ID is required',
+            });
+        }
+
+        const folder = await Folder.findOne({
+            _id: folderId,
+            isDeleted: false,
+        }).lean();
+
+        if (!folder) {
+            return res.status(404).json({
+                success: false,
+                message: 'Folder not found',
+            });
+        }
+
+        const subfolders = await Folder.find({
+            parentFolder: folderId,
+            isDeleted: false,
+        }).sort({ createdAt: -1 }).lean();
+
+        const files = await File.find({
+            folder: folderId,
+            isDeleted: false,
+        }).sort({ createdAt: -1 }).lean();
+
+        return res.status(200).json({
+            success: true,
+            folder: {
+                _id: folder._id,
+                name: folder.name,
+                parentFolder: folder.parentFolder,
+                size: folder.size || 0,
+            },
+            files,
+            subfolders,
+        });
+
+    } catch (error) {
+        console.error('Error in getSharedFolderContents:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to fetch shared folder contents',
         });
     }
 };

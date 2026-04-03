@@ -98,7 +98,9 @@ export class SharedWithMeComponent implements OnInit {
     }
 
     downloadFile(item: any) {
+        console.log('fileId: ', item._id);
         this.fileService.downloadFile(item._id).subscribe({
+            
             next: (res) => {
                 if (!res?.success || !res.downloadUrl) {
                     this.toast.error('Unable to download file.');

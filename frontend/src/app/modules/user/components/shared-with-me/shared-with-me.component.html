@@ -8,13 +8,11 @@
 
     <div class="shared__loading" *ngIf="loading">Loading...</div>
 
-    <!-- Shared Items List View -->
     <div class="shared__section" *ngIf="!loading && !isFolderView && items.length > 0">
         <div class="shared__grid">
             <div class="shared-card" *ngFor="let item of items">
                 <div class="shared-card__top">
                     <div class="shared-card__icon">
-                        <!-- SVG icon based on file type -->
                         <img 
                             [src]="getItemIcon(item)" 
                             [alt]="isFile(item) ? 'File icon' : 'Folder icon'"
@@ -50,15 +48,9 @@
         </div>
     </div>
 
-    <!-- Folder Contents View -->
     <div class="shared__section" *ngIf="!loading && isFolderView">
-        <div class="shared__folder-info" *ngIf="currentFolder">
-            <p>Shared by: {{ currentFolder.sharedByEmail }}</p>
-            <p *ngIf="currentFolder.expiresAt">Expires: {{ currentFolder.expiresAt | date:'medium' }}</p>
-        </div>
 
         <div class="shared__grid">
-            <!-- Folders -->
             <div class="shared-card" *ngFor="let folder of folders">
                 <div class="shared-card__top">
                     <div class="shared-card__icon">
@@ -77,7 +69,6 @@
                 </div>
             </div>
 
-            <!-- Files -->
             <div class="shared-card" *ngFor="let file of files">
                 <div class="shared-card__top">
                     <div class="shared-card__icon">
