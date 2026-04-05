@@ -1,4 +1,10 @@
-<div class="drive">
+<div class="drive" 
+     (dragenter)="onDragEnter($event)"
+     (dragover)="onDragOver($event)"
+     (dragleave)="onDragLeave($event)"
+     (drop)="onDrop($event)"
+     [class.drop-active]="dragActive"
+>
 
     <div class="drive__header">
         <div class="drive__breadcrumb">
@@ -37,6 +43,7 @@
                     (ngModelChange)="onFilterChange()"
                 />
             </div>
+
             <div class="filter-group">
                 <label for="date-to">Created to</label>
                 <input
@@ -131,7 +138,7 @@
               type="button"
               class="chip chip--add"
               (click)="addEmail()"
-              [disabled]="!shareEmailInput?.trim()"
+              [disabled]="!shareEmailInput.trim()"
             >
               Add Email
             </button>
@@ -245,7 +252,7 @@
                 <div class="file-card__top">
                     <!-- SVG icon for file type -->
                     <img 
-                        [src]="getItemIcon(file)"
+                        [src]="file.name | fileIcon"
                         alt="File icon"
                         class="file-card__icon"
                     />
@@ -263,7 +270,20 @@
                         />
                     </div>
                 </div>
-                <div class="file-card__preview"></div>
+                <div class="file-card__preview">
+                    <img
+                        *ngIf="getFilePreview(file).type === 'image'"
+                        [src]="getFilePreview(file).src"
+                        [alt]="getFilePreview(file).alt"
+                        class="file-card__preview-image"
+                    />
+                    <img
+                        *ngIf="getFilePreview(file).type === 'icon'"
+                        [src]="getFilePreview(file).src"
+                        [alt]="getFilePreview(file).alt"
+                        class="file-card__preview-icon"
+                    />
+                </div>
             </div>
         </div>
     </div>

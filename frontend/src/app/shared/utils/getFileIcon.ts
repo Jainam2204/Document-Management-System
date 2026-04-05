@@ -5,60 +5,31 @@ export const getFileIcon = (fileName: string, isFolder: boolean = false): string
 
   const extension = getFileExtension(fileName).toLowerCase();
 
-  const extensionMap: { [key: string]: string } = {
-    'pdf': 'pdf',
+  // Return extension-specific PNG icon, fallback to default file icon
+  return `/icons/${extension}.png`;
+}
 
-    'doc': 'doc',
-    'docx': 'doc',
-    'dot': 'doc',
-    'dotx': 'doc',
+export const isImageFile = (fileName: string): boolean => {
+  const extension = getFileExtension(fileName).toLowerCase();
+  const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico'];
+  return imageExtensions.includes(extension);
+}
 
-    'xls': 'xls',
-    'xlsx': 'xls',
-    'csv': 'xls',
+export const getFilePreview = (file: any): { type: 'image' | 'icon'; src: string; alt: string } => {
+  if (isImageFile(file.name)) {
+    // For now, return icon - will be enhanced to get actual image URL
+    return {
+      type: 'icon',
+      src: getFileIcon(file.name),
+      alt: `${getFileExtension(file.name).toUpperCase()} file`
+    };
+  }
 
-    'ppt': 'ppt',
-    'pptx': 'ppt',
-    'odp': 'ppt',
-
-    'jpg': 'image',
-    'jpeg': 'image',
-    'png': 'image',
-    'gif': 'image',
-    'bmp': 'image',
-    'svg': 'image',
-    'webp': 'image',
-    'ico': 'image',
-
-    'mp4': 'video',
-    'avi': 'video',
-    'mov': 'video',
-    'mkv': 'video',
-    'flv': 'video',
-    'wmv': 'video',
-    'webm': 'video',
-
-    'mp3': 'audio',
-    'wav': 'audio',
-    'flac': 'audio',
-    'aac': 'audio',
-    'ogg': 'audio',
-    'm4a': 'audio',
-
-    'zip': 'zip',
-    'rar': 'zip',
-    '7z': 'zip',
-    'tar': 'zip',
-    'gz': 'zip',
-
-    'txt': 'txt',
-    'rtf': 'txt',
-    'log': 'txt',
+  return {
+    type: 'icon',
+    src: getFileIcon(file.name),
+    alt: `${getFileExtension(file.name).toUpperCase()} file`
   };
-
-  const iconName = extensionMap[extension] || 'default';
-
-  return `/icons/${iconName}.svg`;
 }
 
 const getFileExtension = (fileName: string): string => {

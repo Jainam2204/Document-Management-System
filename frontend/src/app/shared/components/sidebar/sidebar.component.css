@@ -82,6 +82,11 @@
   min-width: var(--sidebar-collapsed);
 }
 
+.sidebar.drop-active {
+  outline: 2px dashed rgba(26, 115, 232, 0.75);
+  outline-offset: -6px;
+}
+
 .sidebar--collapsed .sidebar-label,
 .sidebar--collapsed .storage-info
 /* .sidebar--collapsed .sidebar-new  */
@@ -404,13 +409,13 @@
   color: #fff;
 }
 
-/* Upload progress bar shown during folder upload (positioned at bottom of screen) */
+/* Upload progress bar shown during folder upload (positioned at bottom-right of screen) */
 .sidebar-upload-bar {
   position: fixed;
   bottom: 20px;
-  left: 16px;
   right: 16px;
-  max-width: 320px;
+  left: auto;
+  max-width: 360px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -423,6 +428,11 @@
   color: #1a73e8;
   z-index: 1000;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.sidebar.drop-active {
+  outline: 2px dashed rgba(26, 115, 232, 0.75);
+  outline-offset: -6px;
 }
 
 .sidebar-upload-bar__text {

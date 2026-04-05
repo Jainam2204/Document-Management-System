@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
+import { Component, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -22,9 +22,6 @@ import { StorageService } from '../../../services/storage/storage.service';
 })
 export class SidebarComponent implements OnDestroy {
     @Input() collapsed = false;
-
-    @ViewChild('fileInput') fileInput!: ElementRef;
-    @ViewChild('folderInput') folderInput!: ElementRef;
 
     activeItem = 'files';
     storageUsed = 0;
@@ -55,9 +52,6 @@ export class SidebarComponent implements OnDestroy {
 
         this.storageService.refreshStorage();
     }
-    ngAfterViewInit() {
-        this.folderInput.nativeElement.setAttribute('webkitdirectory', '');
-    }
 
     toggleNewMenu() {
         this.showNewMenu = !this.showNewMenu;
@@ -79,6 +73,7 @@ export class SidebarComponent implements OnDestroy {
                 if (res.success) {
                     this.toast.success('Folder created successfully');
                     this.storageService.refreshStorage();
+                    this.fileService.fileUploaded$.next();
                 } else {
                     this.toast.error(res.message);
                 }
@@ -90,18 +85,8 @@ export class SidebarComponent implements OnDestroy {
         });
     }
 
-    triggerFileUpload() {
-        this.showNewMenu = false;
-        this.fileInput.nativeElement.click();
-    }
-
-    triggerFolderUpload() {
-        this.showNewMenu = false;
-        this.folderInput.nativeElement.click();
-    }
-
-    /* 
-    Select folder → validate files → extract root folder name → build subfolder paths → 
+    /*
+    Select folder → validate files → extract root folder name → build subfolder paths →
     create folder structure in backend → map folder paths to IDs → loop through files sequentially
     → determine each file’s parent folder → request S3 upload URL → upload file to S3 → save file metadata in database → track upload progress → handle errors if any → on completion show success and refresh UI
     */
@@ -120,6 +105,9 @@ export class SidebarComponent implements OnDestroy {
         }
     }
 
+    dragActive = false;
+    dragCounter = 0;
+
     onAction(event: { type: string, data?: any }) {
         const parentId = this.routeHelper.getParentFolderIdFromUrl();
         switch (event.type) {
@@ -135,12 +123,46 @@ export class SidebarComponent implements OnDestroy {
         }
     }
 
+    onDragEnter(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragCounter += 1;
+        this.dragActive = true;
+    }
+
+    onDragOver(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    onDragLeave(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragCounter -= 1;
+        if (this.dragCounter <= 0) {
+            this.dragCounter = 0;
+            this.dragActive = false;
+        }
+    }
+
+    onDrop(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragCounter = 0;
+        this.dragActive = false;
+        const parentId = this.routeHelper.getParentFolderIdFromUrl();
+        if (event.dataTransfer) {
+            this.uploadHelper.uploadDataTransferItems(event.dataTransfer, parentId);
+        }
+    }
+
     private createFolderFromAction(name: string, parentId: string | null) {
         this.fileService.createFolder(name, parentId || undefined).subscribe({
             next: (res) => {
                 if (res?.success) {
                     this.toast.success('Folder created successfully');
                     this.storageService.refreshStorage();
+                    this.fileService.fileUploaded$.next();
                 } else {
                     this.toast.error(res?.message || 'Failed to create folder');
                 }

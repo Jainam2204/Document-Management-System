@@ -23,7 +23,8 @@ import {
     shareResource,
     shareWithUsers,
     getSharedWithMe,
-    getSharedFolderContents
+    getSharedFolderContents,
+    getFileViewUrl
 } from '../controllers/fileController.js';
 
 const router = express.Router();
@@ -34,6 +35,7 @@ router.post('/rename/:id', authMiddleware, renameFile);
 // router.post('/share/:type/:id', authMiddleware, generateShareLink);
 // router.get('/share/:token', getSharedResource);
 router.get('/download/:id', authMiddleware, getFileDownloadUrl);
+router.get('/view/:id', authMiddleware, getFileViewUrl);
 router.post('/create-folder-tree', authMiddleware, createFolderTree);
 router.post('/folders', authMiddleware, createFolder);
 router.get('/', authMiddleware, getUserFiles);

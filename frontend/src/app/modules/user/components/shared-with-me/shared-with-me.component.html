@@ -14,7 +14,7 @@
                 <div class="shared-card__top">
                     <div class="shared-card__icon">
                         <img 
-                            [src]="getItemIcon(item)" 
+                            [src]="item.name | fileIcon : !isFile(item)" 
                             [alt]="isFile(item) ? 'File icon' : 'Folder icon'"
                             class="icon-svg"
                             [class]="isFile(item) ? '' : 'clickable'"
@@ -55,7 +55,7 @@
                 <div class="shared-card__top">
                     <div class="shared-card__icon">
                         <img 
-                            [src]="getItemIcon(folder)" 
+                            [src]="folder.name | fileIcon : true" 
                             alt="Folder icon"
                             class="icon-svg clickable"
                             (click)="onFolderClick(folder)"
@@ -73,7 +73,7 @@
                 <div class="shared-card__top">
                     <div class="shared-card__icon">
                         <img 
-                            [src]="getItemIcon(file)" 
+                            [src]="file.name | fileIcon" 
                             alt="File icon"
                             class="icon-svg"
                         />
