@@ -1534,19 +1534,12 @@ export const shareResource = async (req, res) => {
 export const shareWithUsers = async (req, res) => {
     try {
         const { type, id } = req.params;
-        const { emails, expiry } = req.body;
+        const { emails, expiry, shareWithEveryone } = req.body;
 
         if (type !== 'file' && type !== 'folder') {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid resource type'
-            });
-        }
-
-        if (!emails || emails.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'At least one email is required'
             });
         }
 
@@ -1564,6 +1557,29 @@ export const shareWithUsers = async (req, res) => {
             });
         }
 
+        let targetEmails = [];
+        if (shareWithEveryone) {
+            const users = await User.find({ _id: { $ne: req.user._id } });
+            targetEmails = users.map((user) => user.email.toLowerCase());
+
+            if (targetEmails.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No other registered users found to share with'
+                });
+            }
+        } else {
+            if (!emails || emails.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'At least one email is required'
+                });
+            }
+            targetEmails = emails;
+        }
+
+        targetEmails = [...new Set(targetEmails.map((email) => email.trim().toLowerCase()))];
+
         let expiresAt = null;
         if (expiry) {
             expiresAt = new Date(expiry);
@@ -1580,15 +1596,11 @@ export const shareWithUsers = async (req, res) => {
             failed: []
         };
 
-        for (const email of emails) {
+        for (const email of targetEmails) {
             try {
                 const trimmedEmail = email.trim().toLowerCase();
 
                 if (trimmedEmail === req.user.email.toLowerCase()) {
-                    res.status(400).json({
-                        success: false,
-                        message: "Cannot share with yourself"
-                    })
                     results.failed.push({ email: trimmedEmail, reason: 'Cannot share with yourself' });
                     continue;
                 }
@@ -1621,17 +1633,14 @@ export const shareWithUsers = async (req, res) => {
                     expiresAt
                 });
 
-                const user = await User.findOne({_id: resource.owner});
-
-                await sendEmail({
-                    to: targetUser.email,
-                    subject: `${type} shared with you: `,
-                    html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
-                });
-
+                const user = await User.findOne({ _id: resource.owner });
+                // await sendEmail({
+                //     to: targetUser.email,
+                //     subject: `${type} shared with you: `,
+                //     html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
+                // });
 
                 results.successful.push(trimmedEmail);
-
             } catch (emailError) {
                 console.error(`Error sharing with ${email}:`, emailError);
                 results.failed.push({ email: email.trim(), reason: 'Internal error' });

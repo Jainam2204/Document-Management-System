@@ -96,38 +96,61 @@
         <div *ngIf="actionDialogMode === 'share'">
           <p>Share "{{ actionDialogRecord?.name }}" with other users.</p>
 
-          <!-- Email input section -->
-          <label for="share-email">Email addresses (press Enter to add)</label>
-          <input
-            id="share-email"
-            type="email"
-            class="dialog__input"
-            [(ngModel)]="shareEmailInput"
-            (keydown.enter)="addEmail($event)"
-            placeholder="Enter email address"
-          />
-          <button
-            type="button"
-            class="chip chip--add"
-            (click)="addEmail()"
-            [disabled]="!shareEmailInput?.trim()"
-          >
-            Add Email
-          </button>
+          <div class="share-scope" style="display: flex; gap: 16px; margin-bottom: 16px;">
+            <label class="radio-inline">
+              <input
+                type="radio"
+                name="shareScope"
+                [checked]="!shareWithEveryone"
+                (change)="shareWithEveryone = false"
+              />
+              Specific users
+            </label>
+            <label class="radio-inline">
+              <input
+                type="radio"
+                name="shareScope"
+                [checked]="shareWithEveryone"
+                (change)="shareWithEveryone = true"
+              />
+              Everyone
+            </label>
+          </div>
 
-          <!-- Email chips/tags -->
-          <div class="email-chips" *ngIf="shareEmails.length > 0">
-            <div class="chip" *ngFor="let email of shareEmails; let i = index">
-              {{ email }}
-              <button type="button" class="chip__remove" (click)="removeEmail(i)">×</button>
+          <div *ngIf="!shareWithEveryone">
+            <label for="share-email">Email addresses (press Enter to add)</label>
+            <input
+              id="share-email"
+              type="email"
+              class="dialog__input"
+              [(ngModel)]="shareEmailInput"
+              (keydown.enter)="addEmail($event)"
+              placeholder="Enter email address"
+            />
+            <button
+              type="button"
+              class="chip chip--add"
+              (click)="addEmail()"
+              [disabled]="!shareEmailInput?.trim()"
+            >
+              Add Email
+            </button>
+
+            <div class="email-chips" *ngIf="shareEmails.length > 0">
+              <div class="chip" *ngFor="let email of shareEmails; let i = index">
+                {{ email }}
+                <button type="button" class="chip__remove" (click)="removeEmail(i)">×</button>
+              </div>
             </div>
           </div>
 
-          <!-- Expiry date (optional) -->
+          <div *ngIf="shareWithEveryone" class="share-everyone-note" style="margin-bottom: 16px; color: #555;">
+            This item will be shared with all registered users.
+          </div>
+
           <label for="share-date">Expiry date (optional)</label>
           <input id="share-date" type="date" class="dialog__input" [(ngModel)]="shareExpiryDate" />
 
-          <!-- Success message when shared -->
           <div *ngIf="shareSuccessMessage" class="share-success" style="margin-top: 12px; color: #1e8e3e; font-weight: 500;">
             {{ shareSuccessMessage }}
           </div>
@@ -160,7 +183,7 @@
             type="button"
             class="primary"
             (click)="submitShare()"
-            [disabled]="actionDialogLoading || shareEmails.length === 0"
+            [disabled]="actionDialogLoading || (!shareWithEveryone && shareEmails.length === 0)"
           >
             Share
           </button>
@@ -168,12 +191,18 @@
       </div>
     </div>
 
+    <app-upload-helper
+        #uploadHelper
+        (fileUploadSuccess)="onFileUploadSuccess($event)"
+        (folderUploadCompleted)="onFolderUploadCompleted($event)"
+    ></app-upload-helper>
+
     <div class="drive__loading" *ngIf="loading">Loading files...</div>
 
     <!-- Folder upload progress bar with Cancel button -->
-    <div class="folder-upload-bar" *ngIf="folderUploadLoading">
-        <span class="folder-upload-bar__text">{{ folderUploadStatus || 'Uploading folder...' }}</span>
-        <button type="button" class="folder-upload-bar__cancel" (click)="cancelFolderUpload()">
+    <div class="folder-upload-bar" *ngIf="uploadHelper.folderUploadLoading">
+        <span class="folder-upload-bar__text">{{ uploadHelper.folderUploadStatus || 'Uploading folder...' }}</span>
+        <button type="button" class="folder-upload-bar__cancel" (click)="uploadHelper.cancelFolderUpload()">
             Cancel
         </button>
     </div>

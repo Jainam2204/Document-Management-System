@@ -251,10 +251,11 @@ export class FileService {
         });
     }
 
-    shareWithUsers(type: 'file' | 'folder', resourceId: string, emails: string[], expiry?: string): Observable<ShareWithUsersResponse> {
+    shareWithUsers(type: 'file' | 'folder', resourceId: string, emails: string[], expiry?: string, shareWithEveryone?: boolean): Observable<ShareWithUsersResponse> {
         return this.http.post<ShareWithUsersResponse>(this.url + `/share-with-users/${type}/${resourceId}`, {
             emails,
             expiry: expiry || null,
+            shareWithEveryone: !!shareWithEveryone,
         });
     }
 

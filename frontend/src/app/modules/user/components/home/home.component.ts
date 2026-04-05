@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, take } from 'rxjs';
@@ -9,6 +9,7 @@ import { ToastService } from '../../../../services/toast/toast.service';
 import { UserService } from '../../../../services/user/user.service';
 import { RouteHelperService } from '../../../../services/route-helper/route-helper.service';
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
+import { UploadHelperComponent } from '../../../../shared/components/upload-helper/upload-helper.component';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
 import { StorageService } from '../../../../services/storage/storage.service';
 import { getFileIcon } from '../../../../shared/utils/getFileIcon';
@@ -16,7 +17,7 @@ import { getFileIcon } from '../../../../shared/utils/getFileIcon';
 
 @Component({
     selector: 'app-home',
-    imports: [CommonModule, FormsModule, FileActionDropdownComponent, SizePipe],
+    imports: [CommonModule, FormsModule, FileActionDropdownComponent, SizePipe, UploadHelperComponent],
     templateUrl: './home.component.html',
     styleUrls: ['./home.component.css']
 })
@@ -38,10 +39,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     shareUrl = '';
     shareEmails: string[] = [];  
     shareEmailInput = '';        
+    shareWithEveryone = false;   
     shareSuccessMessage = '';    
-    folderUploadLoading = false;
-    folderUploadStatus = '';
-    folderUploadCancelled = false;
+
+    @ViewChild('uploadHelper') uploadHelper!: UploadHelperComponent;
 
     allFolders: FolderRecord[] = [];
     allFiles: FileRecord[] = [];
@@ -305,10 +306,10 @@ export class HomeComponent implements OnInit, OnDestroy {
                 this.createFolder(event.data.name, parentId);
                 break;
             case 'uploadFile':
-                this.uploadFile(event.data, parentId);
+                this.uploadHelper.uploadFile(event.data, parentId);
                 break;
             case 'uploadFolder':
-                this.uploadFolder(event.data, parentId);
+                this.uploadHelper.uploadFolder(event.data, parentId);
                 break;
             case 'download':
                 if (this.isFileRecord(event.data)) {
@@ -343,6 +344,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.shareUrl = '';
         this.shareExpiryDate = '';
         this.shareExpiryTime = '';
+        this.shareWithEveryone = false;
         this.actionDialogInput = mode === 'rename' ? record.name : '';
     }
 
@@ -355,6 +357,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.shareUrl = '';
         this.shareEmails = [];      
         this.shareEmailInput = '';  
+        this.shareWithEveryone = false;
         this.shareSuccessMessage = ''; 
     }
 
@@ -428,7 +431,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     submitShare()  {
-        if (!this.actionDialogRecord || this.shareEmails.length === 0) {
+        if (!this.actionDialogRecord || (!this.shareWithEveryone && this.shareEmails.length === 0)) {
             return;
         }
 
@@ -439,16 +442,20 @@ export class HomeComponent implements OnInit, OnDestroy {
         const resourceType = this.isFileRecord(this.actionDialogRecord) ? 'file' : 'folder';
         const expiry = this.shareExpiryDate ? new Date(this.shareExpiryDate).toISOString() : undefined;
 
-        this.fileService.shareWithUsers(resourceType, this.actionDialogRecord._id, this.shareEmails, expiry).subscribe({
+        this.fileService.shareWithUsers(resourceType, this.actionDialogRecord._id, this.shareEmails, expiry, this.shareWithEveryone).subscribe({
             next: (res) => {
                 this.actionDialogLoading = false;
                 if (res.success) {
-                    const sharedCount = res.sharedCount || this.shareEmails.length;
-                    this.shareSuccessMessage = `Successfully shared with ${sharedCount} user(s)!`;
-                    this.toast.success(`Shared with ${sharedCount} user(s)`);
-
-                    this.shareEmails = [];
-                    this.shareEmailInput = '';
+                    if (this.shareWithEveryone) {
+                        this.shareSuccessMessage = `Successfully shared with all registered users!`;
+                        this.toast.success('Shared with everyone');
+                    } else {
+                        const sharedCount = res.sharedCount || this.shareEmails.length;
+                        this.shareSuccessMessage = `Successfully shared with ${sharedCount} user(s)!`;
+                        this.toast.success(`Shared with ${sharedCount} user(s)`);
+                        this.shareEmails = [];
+                        this.shareEmailInput = '';
+                    }
                 } else {
                     this.actionDialogError = res.message || 'Failed to share.';
                 }
@@ -554,28 +561,10 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    private uploadFile(file: File, parentId: string | null) {
-        this.toast.warning('Uploading ' + file.name + '...');
-        this.fileService.uploadFile(file, parentId).subscribe({
-            next: (res) => {
-                if (res?.success && res?.file) {
-                    this.allFiles.push(res.file);
-                    this.applyFilters();
-
-                    this.toast.success(file.name + ' uploaded successfully!');
-                    this.storageService.refreshStorage();
-                   
-                    this.loadData();
-                } else {
-                    this.toast.error(res?.message || 'Failed to upload file');
-                }
-            },
-            error: (err) => {
-                this.toast.error(err?.error?.message || 'Failed to upload file');
-            }
-        });
+    onFileUploadSuccess(response: any) {
+        this.storageService.refreshStorage();
+        this.loadData();
     }
-
 
     private downloadFile(file: FileRecord)  {
         this.fileService.downloadFile(file._id).subscribe({
@@ -600,165 +589,9 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    private uploadFolder(files: File[], parentId: string | null) {
-        if (!files || files.length === 0) {
-            this.toast.error('No folder selected.');
-            return;
-        }
-
-        const parsed = this.parseFolderFiles(files);
-        if (!parsed) {
-            this.toast.error('Unable to read folder structure from selected files.');
-            return;
-        }
-
-        this.folderUploadCancelled = false;
-        this.folderUploadLoading = true;
-        this.folderUploadStatus = `Creating folder tree for ${parsed.rootName}...`;
-
-        this.fileService.createFolderTree(parsed.rootName, parsed.subPaths, parentId).subscribe({
-            next: (res) => {
-                if (!res?.success) {
-                    this.toast.error(res?.message || 'Failed to create folder tree.');
-                    this.folderUploadLoading = false;
-                    return;
-                }
-
-                this.folderUploadStatus = 'Uploading files...';
-                this.uploadFilesSequentially(parsed.fileItems, res.pathToIdMap);
-            },
-            error: (err) => {
-                this.toast.error(err?.error?.message || 'Folder upload failed.');
-                this.folderUploadLoading = false;
-            }
-        });
-    }
-
-
-    private parseFolderFiles(files: File[]): {
-        rootName: string;
-        fileItems: Array<{ file: File; folderPath: string; relativePath: string }>;
-        subPaths: string[];
-    } | null {
-        const fileItems: Array<{ file: File; folderPath: string; relativePath: string }> = [];
-        const folderSet = new Set<string>();
-
-        const firstPath = (files[0] as any).webkitRelativePath || '';
-        const rootName = firstPath.replace(/\\/g, '/').split('/')[0];
-        if (!rootName) {
-            return null;
-        }
-
-        for (const file of files) {
-            const relativePath = ((file as any).webkitRelativePath || '').replace(/\\/g, '/');
-            const parts = relativePath.split('/');
-            if (parts.length < 2) {
-                continue;
-            }
-
-            const folderPath = parts.length > 2 ? parts.slice(1, -1).join('/') : '';
-
-            const relativeDirPath = parts.slice(0, -1).join('/');
-
-            fileItems.push({ file, folderPath, relativePath: relativeDirPath });
-
-            for (let i = 2; i < parts.length; i++) {
-                const pathPart = parts.slice(1, i).join('/');
-                if (pathPart) {
-                    folderSet.add(pathPart);
-                }
-            }
-        }
-
-        return {
-            rootName,
-            fileItems,
-            subPaths: Array.from(folderSet),
-        };
-    }
-
-
-    cancelFolderUpload() {
-        this.folderUploadCancelled = true;
-    }
-
-    private uploadFilesSequentially(
-        fileItems: Array<{ file: File; folderPath: string; relativePath: string }>,
-        pathToIdMap: { [path: string]: string }
-    ) {
-        let index = 0;
-        let successCount = 0;
-        let failureCount = 0;
-
-        const next = () => {
-            if (this.folderUploadCancelled) {
-                this.folderUploadLoading = false;
-                this.folderUploadStatus = '';
-                this.folderUploadCancelled = false;
-                this.storageService.refreshStorage();
-                this.loadData();
-                this.toast.warning(`Upload cancelled. ${successCount} file(s) were saved.`);
-                return;
-            }
-
-            if (index >= fileItems.length) {
-                this.folderUploadLoading = false;
-                this.folderUploadStatus = '';
-                if (successCount > 0) {
-                    this.storageService.refreshStorage();
-                }
-                this.loadData();
-                if (failureCount === 0) {
-                    this.toast.success(`Uploaded ${successCount} files successfully.`);
-                } else {
-                    this.toast.warning(`Uploaded ${successCount} files, ${failureCount} failed.`);
-                }
-                return;
-            }
-
-            const item = fileItems[index++];
-            const folderId = pathToIdMap[item.folderPath] || pathToIdMap[''];
-            if (!folderId) {
-                failureCount += 1;
-                next();
-                return;
-            }
-
-            this.folderUploadStatus = `Uploading ${item.file.name} (${index}/${fileItems.length})...`;
-            this.uploadFileToFolder(item.file, folderId, item.relativePath, (uploadedFile) => {
-                if (uploadedFile) {
-                    successCount += 1;
-                } else {
-                    failureCount += 1;
-                }
-                next();
-            });
-        };
-
-        next();
-    }
-
-
-    private uploadFileToFolder(
-        file: File,
-        folderId: string,
-        relativePath: string,
-        callback: (uploadedFile: any) => void
-    ) {
-        this.fileService.uploadFile(file, folderId, relativePath).subscribe({
-            next: (res) => {
-                if (res?.success && res?.file) {
-                    this.allFiles.push(res.file);
-                    this.applyFilters();
-                    callback(res.file);
-                } else {
-                    callback(null);
-                }
-            },
-            error: () => {
-                callback(null);
-            }
-        });
+    onFolderUploadCompleted(result: { successCount: number; failureCount: number }) {
+        this.storageService.refreshStorage();
+        this.loadData();
     }
 }
 

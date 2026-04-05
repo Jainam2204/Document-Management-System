@@ -72,10 +72,16 @@
   </div>
 </aside>
 
+<app-upload-helper
+  #uploadHelper
+  (fileUploadSuccess)="onUploadSuccess($event)"
+  (folderUploadCompleted)="onFolderUploadCompleted($event)"
+></app-upload-helper>
+
 <!-- Folder upload status bar with Cancel button (shown during folder upload) -->
-<div class="sidebar-upload-bar" *ngIf="uploading">
+<div class="sidebar-upload-bar" *ngIf="uploadHelper.uploading">
   <span class="sidebar-upload-bar__text">Uploading...</span>
-  <button type="button" class="sidebar-upload-bar__cancel" (click)="cancelUpload()">
+  <button type="button" class="sidebar-upload-bar__cancel" (click)="uploadHelper.cancelFolderUpload()">
     Cancel
   </button>
 </div>
