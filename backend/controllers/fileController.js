@@ -505,6 +505,39 @@ export const getFileDownloadUrl = async (req, res) => {
     }
 };
 
+export const getFileViewUrl = async (req, res) => {
+    try {
+        const id = req.params.id;
+        console.log('fileId: ', id);
+
+        const file = await File.findOne({
+            _id: id,
+            isDeleted: false,
+        }).lean();
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'File not found',
+            });
+        }
+
+        // For view URL, don't set attachment disposition so it displays inline
+        const viewUrl = await generateDownloadUrl(file.s3Key, 3600); // 1 hour expiry for viewing
+
+        return res.status(200).json({
+            success: true,
+            downloadUrl: viewUrl, // Keep the same response format
+        });
+    } catch (error) {
+        console.error('Error in getFileViewUrl: ' + error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate view URL',
+        });
+    }
+};
+
 export const getUserFiles = async (req, res) => {
     try {
         const { folderId } = req.query;

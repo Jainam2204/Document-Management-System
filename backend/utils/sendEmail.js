@@ -10,7 +10,7 @@ const sendEmail = async ({
     html
 }) => {
     try {
-        const response = await client.transactionalEmails.sendTransacEmail({
+        const response = await client.sendTransacEmail({
             sender: {
                 email: process.env.EMAIL_FROM,
                 name: process.env.EMAIL_FROM_NAME || "Team DMS",

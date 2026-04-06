@@ -32,6 +32,7 @@ export class UploadHelperComponent {
                 if (res?.success) {
                     this.toast.success(file.name + ' uploaded successfully!');
                     this.fileUploadSuccess.emit(res.file);
+                    this.fileService.fileUploaded$.next();
                 } else {
                     this.toast.error(res?.message || 'Failed to upload file');
                 }
@@ -40,6 +41,99 @@ export class UploadHelperComponent {
                 this.toast.error(err?.error?.message || 'Failed to upload file');
             }
         });
+    }
+
+    async uploadDataTransferItems(dataTransfer: DataTransfer, parentId: string | null) {
+        const files = await this.readDataTransferFiles(dataTransfer);
+        if (!files.length) {
+            return;
+        }
+
+        const folderFiles = files.filter((file) => !!(file as any).webkitRelativePath);
+        const normalFiles = files.filter((file) => !(file as any).webkitRelativePath);
+
+        if (folderFiles.length) {
+            this.uploadFolder(folderFiles, parentId);
+        }
+
+        normalFiles.forEach((file) => {
+            this.uploadFile(file, parentId);
+        });
+    }
+
+    private readDataTransferFiles(dataTransfer: DataTransfer): Promise<File[]> {
+        return new Promise((resolve) => {
+            const fileList = dataTransfer.files || [];
+            const items = dataTransfer.items;
+
+            if (items && items.length) {
+                const files: File[] = [];
+                const entryPromises: Promise<void>[] = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    if (item.kind !== 'file') {
+                        continue;
+                    }
+
+                    const entry = (item as any).webkitGetAsEntry?.();
+                    if (entry) {
+                        entryPromises.push(this.traverseFileTree(entry, '', files));
+                    } else {
+                        const file = item.getAsFile();
+                        if (file) {
+                            files.push(file);
+                        }
+                    }
+                }
+
+                if (!entryPromises.length) {
+                    resolve(files);
+                    return;
+                }
+
+                Promise.all(entryPromises).then(() => resolve(files));
+                return;
+            }
+
+            resolve(Array.from(fileList));
+        });
+    }
+
+    private traverseFileTree(entry: any, path: string, files: File[]): Promise<void> {
+        return new Promise((resolve) => {
+            if (entry.isFile) {
+                entry.file((file: File) => {
+                    const fileWithPath = this.cloneFileWithPath(file, path + file.name);
+                    files.push(fileWithPath);
+                    resolve();
+                });
+            } else if (entry.isDirectory) {
+                const reader = entry.createReader();
+                const readEntries = () => {
+                    reader.readEntries((entries: any[]) => {
+                        if (!entries.length) {
+                            resolve();
+                            return;
+                        }
+
+                        Promise.all(entries.map((subEntry) => this.traverseFileTree(subEntry, path + entry.name + '/', files))).then(readEntries);
+                    });
+                };
+                readEntries();
+            } else {
+                resolve();
+            }
+        });
+    }
+
+    private cloneFileWithPath(file: File, relativePath: string): File {
+        const cloned = new File([file], file.name, {
+            type: file.type,
+            lastModified: file.lastModified,
+        });
+        (cloned as any).webkitRelativePath = relativePath;
+        return cloned;
     }
 
     uploadFolder(files: File[], parentId: string | null) {
@@ -144,6 +238,9 @@ export class UploadHelperComponent {
                     this.toast.success(`Uploaded ${successCount} files successfully.`);
                 } else {
                     this.toast.warning(`Uploaded ${successCount} files, ${failureCount} failed.`);
+                }
+                if (successCount > 0) {
+                    this.fileService.fileUploaded$.next();
                 }
                 this.folderUploadCompleted.emit({ successCount, failureCount });
                 return;

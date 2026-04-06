@@ -11,13 +11,14 @@ import { RouteHelperService } from '../../../../services/route-helper/route-help
 import { FileActionDropdownComponent } from '../file-action-dropdown/file-action-dropdown.component';
 import { UploadHelperComponent } from '../../../../shared/components/upload-helper/upload-helper.component';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
+import { FileIconPipe } from '../../../../shared/pipes/file-icon/file-icon.pipe';
 import { StorageService } from '../../../../services/storage/storage.service';
-import { getFileIcon } from '../../../../shared/utils/getFileIcon';
+import { getFileIcon, getFilePreview } from '../../../../shared/utils/getFileIcon';
 
 
 @Component({
     selector: 'app-home',
-    imports: [CommonModule, FormsModule, FileActionDropdownComponent, SizePipe, UploadHelperComponent],
+    imports: [CommonModule, FormsModule, FileActionDropdownComponent, SizePipe, UploadHelperComponent, FileIconPipe],
     templateUrl: './home.component.html',
     styleUrls: ['./home.component.css']
 })
@@ -41,6 +42,8 @@ export class HomeComponent implements OnInit, OnDestroy {
     shareEmailInput = '';        
     shareWithEveryone = false;   
     shareSuccessMessage = '';    
+    dragActive = false;
+    dragCounter = 0;
 
     @ViewChild('uploadHelper') uploadHelper!: UploadHelperComponent;
 
@@ -176,6 +179,37 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.router.navigate(['/home', folder._id]);
     }
 
+    onDragEnter(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragCounter += 1;
+        this.dragActive = true;
+    }
+
+    onDragOver(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    onDragLeave(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragCounter -= 1;
+        if (this.dragCounter <= 0) {
+            this.dragCounter = 0;
+            this.dragActive = false;
+        }
+    }
+
+    onDrop(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.dragCounter = 0;
+        this.dragActive = false;
+        if (event.dataTransfer) {
+            this.uploadHelper.uploadDataTransferItems(event.dataTransfer, this.currentFolderId);
+        }
+    }
 
     goBack()  {
         if (this.currentFolder?.parentFolder) {
@@ -472,7 +506,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             event.preventDefault(); 
         }
 
-        const email = this.shareEmailInput?.trim();
+        const email = this.shareEmailInput.trim();
         if (!email) {
             return;
         }
@@ -538,6 +572,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     getItemIcon(item: FolderRecord | FileRecord): string {
         const isFolder = !this.isFileRecord(item);
         return getFileIcon(item.name, isFolder);
+    }
+
+    getFilePreview(file: FileRecord) {
+        return getFilePreview(file);
     }
 
     private createFolder(name: string, parentId: string | null)  {

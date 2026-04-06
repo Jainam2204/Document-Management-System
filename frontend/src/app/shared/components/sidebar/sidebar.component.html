@@ -1,4 +1,10 @@
-<aside class="sidebar" [class.sidebar--collapsed]="collapsed" id="app-sidebar">
+<aside class="sidebar" [class.sidebar--collapsed]="collapsed" id="app-sidebar"
+       (dragenter)="onDragEnter($event)"
+       (dragover)="onDragOver($event)"
+       (dragleave)="onDragLeave($event)"
+       (drop)="onDrop($event)"
+       [class.drop-active]="dragActive"
+>
   <!-- <div class="sidebar-fixed-top">
     <button class="logout-btn logout-btn--top" id="sidebar-logout" title="Logout" (click)="onLogout()">
       <img src="/icons/logout.svg" alt="logout" class="icon" />
@@ -79,8 +85,8 @@
 ></app-upload-helper>
 
 <!-- Folder upload status bar with Cancel button (shown during folder upload) -->
-<div class="sidebar-upload-bar" *ngIf="uploadHelper.uploading">
-  <span class="sidebar-upload-bar__text">Uploading...</span>
+<div class="sidebar-upload-bar" *ngIf="uploadHelper.folderUploadLoading">
+  <span class="sidebar-upload-bar__text">{{ uploadHelper.folderUploadStatus || 'Uploading...' }}</span>
   <button type="button" class="sidebar-upload-bar__cancel" (click)="uploadHelper.cancelFolderUpload()">
     Cancel
   </button>

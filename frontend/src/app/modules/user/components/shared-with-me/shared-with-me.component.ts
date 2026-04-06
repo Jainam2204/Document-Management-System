@@ -4,11 +4,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FileService } from '../../../../services/file/file.service';
 import { ToastService } from '../../../../services/toast/toast.service';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
-import { getFileIcon } from '../../../../shared/utils/getFileIcon';
+import { FileIconPipe } from '../../../../shared/pipes/file-icon/file-icon.pipe';
 
 @Component({
     selector: 'app-shared-with-me',
-    imports: [CommonModule, SizePipe],
+    imports: [CommonModule, SizePipe, FileIconPipe],
     templateUrl: './shared-with-me.component.html',
     styleUrls: ['./shared-with-me.component.css']
 })
@@ -83,10 +83,6 @@ export class SharedWithMeComponent implements OnInit {
 
     isFile(item: any): boolean {
         return item.resourceType === 'file';
-    }
-
-    getItemIcon(item: any): string {
-        return getFileIcon(item.name, !this.isFile(item));
     }
 
     onFolderClick(folder: any) {
