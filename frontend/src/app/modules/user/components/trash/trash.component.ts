@@ -4,11 +4,12 @@ import { FileService, FileRecord, FolderRecord } from '../../../../services/file
 import { ToastService } from '../../../../services/toast/toast.service';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
 import { StorageService } from '../../../../services/storage/storage.service';
-
+import { FileIconPipe } from '../../../../shared/pipes/file-icon/file-icon.pipe';
+import { getFileIcon, getFilePreview } from '../../../../shared/utils/getFileIcon';
 
 @Component({
   selector: 'app-trash',
-  imports: [CommonModule, SizePipe],
+  imports: [CommonModule, SizePipe, FileIconPipe],
   templateUrl: './trash.component.html',
   styleUrls: ['./trash.component.css']
 })
@@ -28,12 +29,11 @@ export class TrashComponent implements OnInit {
     private storageService: StorageService
   ) {}
 
-  ngOnInit()  {
+  ngOnInit() {
     this.loadTrashItems();
   }
 
-
-  loadTrashItems()  {
+  loadTrashItems() {
     this.loading = true;
     this.fileService.getTrashItems().subscribe({
       next: (res) => {
@@ -55,22 +55,30 @@ export class TrashComponent implements OnInit {
     return 's3Key' in record;
   }
 
-  openPermanentDeleteDialog(record: FolderRecord | FileRecord)  {
+  getItemIcon(item: FolderRecord | FileRecord): string {
+    const isFolder = !this.isFileRecord(item);
+    return getFileIcon(item.name, isFolder);
+  }
+
+  getFilePreview(file: FileRecord) {
+    return getFilePreview(file);
+  }
+
+  openPermanentDeleteDialog(record: FolderRecord | FileRecord) {
     this.actionDialogMode = 'permanent';
     this.actionDialogRecord = record;
     this.actionDialogLoading = false;
     this.actionDialogError = '';
   }
 
-  closeActionDialog()  {
+  closeActionDialog() {
     this.actionDialogMode = null;
     this.actionDialogRecord = null;
     this.actionDialogError = '';
     this.actionDialogLoading = false;
   }
 
- 
-  restoreItem(record: FolderRecord | FileRecord)  {
+  restoreItem(record: FolderRecord | FileRecord) {
     const request$ = this.isFileRecord(record)
       ? this.fileService.restoreFile(record._id)
       : this.fileService.restoreFolder(record._id);
@@ -90,13 +98,12 @@ export class TrashComponent implements OnInit {
     });
   }
 
-  confirmPermanentDelete()  {
+  confirmPermanentDelete() {
     const record = this.actionDialogRecord;
-    if (!record) {
-      return;
-    }
+    if (!record) return;
 
     this.actionDialogLoading = true;
+
     const request$ = this.isFileRecord(record)
       ? this.fileService.permanentlyDeleteFile(record._id)
       : this.fileService.permanentlyDeleteFolder(record._id);
@@ -104,6 +111,7 @@ export class TrashComponent implements OnInit {
     request$.subscribe({
       next: (res) => {
         this.actionDialogLoading = false;
+
         if (res.success) {
           this.toast.success(`${this.isFileRecord(record) ? 'File' : 'Folder'} permanently deleted.`);
           this.loadTrashItems();
@@ -122,7 +130,6 @@ export class TrashComponent implements OnInit {
 
   formatDate(value?: string): string {
     if (!value) return '-';
-    const date = new Date(value);
-    return date.toLocaleString();
+    return new Date(value).toLocaleString();
   }
 }

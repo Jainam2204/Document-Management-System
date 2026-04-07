@@ -1,0 +1,28 @@
+<div class="log-widget" [class.log-widget--expanded]="expanded">
+    <button class="log-widget__toggle" (click)="expanded = !expanded" type="button">
+        <span class="log-widget__toggle-icon">📋</span>
+        <span class="log-widget__toggle-text" *ngIf="!expanded">Activity</span>
+        <span class="log-widget__toggle-text" *ngIf="expanded">Recent Activity</span>
+        <span class="log-widget__chevron" [class.log-widget__chevron--up]="expanded">▾</span>
+    </button>
+
+    <div class="log-widget__body" *ngIf="expanded">
+        <div class="log-widget__loading" *ngIf="loading">Loading...</div>
+
+        <div class="log-widget__empty" *ngIf="!loading && logs.length === 0">
+            No recent activity
+        </div>
+
+        <div class="log-widget__list" *ngIf="!loading && logs.length > 0">
+            <div class="log-widget__item" *ngFor="let log of logs"
+                [class.log-widget__item--login]="log.action === 'LOGIN'">
+                <div class="log-widget__item-icon">{{ getActionIcon(log.action) }}</div>
+                <div class="log-widget__item-content">
+                    <div class="log-widget__item-label">{{ log.label }}</div>
+                    <div class="log-widget__item-resource" *ngIf="log.resourceName">{{ log.resourceName }}</div>
+                    <div class="log-widget__item-time">{{ formatTime(log.timestamp) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

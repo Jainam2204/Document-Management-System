@@ -103,7 +103,8 @@
         <div *ngIf="actionDialogMode === 'share'">
           <p>Share "{{ actionDialogRecord?.name }}" with other users.</p>
 
-          <div class="share-scope" style="display: flex; gap: 16px; margin-bottom: 16px;">
+          <!-- File sharing: show Specific Users + Everyone radio -->
+          <div *ngIf="isShareTargetFile" class="share-scope">
             <label class="radio-inline">
               <input
                 type="radio"
@@ -111,7 +112,7 @@
                 [checked]="!shareWithEveryone"
                 (change)="shareWithEveryone = false"
               />
-              Specific users
+              Specific Users
             </label>
             <label class="radio-inline">
               <input
@@ -124,16 +125,32 @@
             </label>
           </div>
 
+          <!-- Specific Users mode (always for folders, selectable for files) -->
           <div *ngIf="!shareWithEveryone">
             <label for="share-email">Email addresses (press Enter to add)</label>
-            <input
-              id="share-email"
-              type="email"
-              class="dialog__input"
-              [(ngModel)]="shareEmailInput"
-              (keydown.enter)="addEmail($event)"
-              placeholder="Enter email address"
-            />
+            <div class="email-input-wrapper">
+              <input
+                id="share-email"
+                type="email"
+                class="dialog__input"
+                [ngModel]="shareEmailInput"
+                (ngModelChange)="onEmailInputChange($event)"
+                (keydown.enter)="addEmail($event)"
+                (blur)="hideSuggestions()"
+                placeholder="Search by name or email..."
+                autocomplete="off"
+              />
+              <div class="email-suggestions" *ngIf="showSuggestions && filteredSuggestions.length > 0">
+                <div
+                  class="suggestion-item"
+                  *ngFor="let suggestion of filteredSuggestions"
+                  (mousedown)="selectSuggestion(suggestion)"
+                >
+                  <span class="suggestion-name">{{ suggestion.name }}</span>
+                  <span class="suggestion-email">{{ suggestion.email }}</span>
+                </div>
+              </div>
+            </div>
             <button
               type="button"
               class="chip chip--add"
@@ -151,15 +168,34 @@
             </div>
           </div>
 
-          <div *ngIf="shareWithEveryone" class="share-everyone-note" style="margin-bottom: 16px; color: #555;">
-            This item will be shared with all registered users.
+          <!-- Everyone mode (files only) -->
+          <div *ngIf="shareWithEveryone" class="share-everyone-note">
+            A secure public download link will be generated. Anyone with the link can download this file.
           </div>
 
           <label for="share-date">Expiry date (optional)</label>
           <input id="share-date" type="date" [min]="minDate" class="dialog__input" [(ngModel)]="shareExpiryDate" />
 
-          <div *ngIf="shareSuccessMessage" class="share-success" style="margin-top: 12px; color: #1e8e3e; font-weight: 500;">
+          <!-- Success message -->
+          <div *ngIf="shareSuccessMessage" class="share-success">
             {{ shareSuccessMessage }}
+          </div>
+
+          <!-- Public share URL display -->
+          <div *ngIf="publicShareUrl" class="public-share-url-box">
+            <label class="public-share-url-label">Download Link</label>
+            <div class="public-share-url-row">
+              <input
+                type="text"
+                class="dialog__input public-share-url-input"
+                [value]="publicShareUrl"
+                readonly
+                (click)="$any($event.target).select()"
+              />
+              <button type="button" class="chip chip--copy" (click)="copyPublicShareUrl()">
+                Copy
+              </button>
+            </div>
           </div>
         </div>
 

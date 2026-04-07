@@ -1,3 +1,5 @@
+/* ── Toast notifications ── */
+
 .toast-container {
   position: fixed;
   top: 20px;
@@ -5,7 +7,7 @@
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-md, 12px);
   pointer-events: none;
   max-width: 400px;
   width: calc(100% - 40px);
@@ -14,20 +16,21 @@
 .toast {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-md, 12px);
   padding: 14px 16px;
-  border-radius: 10px;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  font-size: 14px;
+  border-radius: var(--radius-lg, 12px);
+  color: var(--color-white, #fff);
+  font-family: var(--font-family, 'Inter', sans-serif);
+  font-size: var(--text-base, 14px);
   font-weight: 500;
   pointer-events: auto;
   animation: toastSlideIn 0.35s ease;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(26,115,232,0.10));
 }
 
-.toast--success { background: #28a745; }
+.toast--success { background: #1a73e8; }
 .toast--warning { background: #e08e00; }
-.toast--error   { background: #dc3545; }
+.toast--error   { background: #d93025; }
 
 .toast__icon {
   display: flex;
@@ -36,13 +39,16 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #ffffff33;
+  background: rgba(255,255,255,0.2);
   font-size: 14px;
   font-weight: 700;
   flex-shrink: 0;
 }
 
-.toast__message { flex: 1; line-height: 1.4; }
+.toast__message {
+  flex: 1;
+  line-height: 1.4;
+}
 
 .toast__close {
   display: flex;
@@ -51,15 +57,17 @@
   width: 28px;
   height: 28px;
   border: none;
-  background: #ffffff26;
-  border-radius: 6px;
+  background: rgba(255,255,255,0.15);
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-  color: #fff;
+  color: var(--color-white, #fff);
   flex-shrink: 0;
-  transition: background 0.2s;
+  transition: background var(--speed, 0.18s ease);
 }
 
-.toast__close:hover { background: #ffffff4d; }
+.toast__close:hover {
+  background: rgba(255,255,255,0.3);
+}
 
 @keyframes toastSlideIn {
   from { opacity: 0; transform: translateX(40px); }
@@ -68,5 +76,5 @@
 
 @media (max-width: 480px) {
   .toast-container { top: 12px; right: 12px; width: calc(100% - 24px); }
-  .toast { font-size: 13px; padding: 12px 14px; }
+  .toast { font-size: var(--text-sm, 13px); padding: 12px 14px; }
 }

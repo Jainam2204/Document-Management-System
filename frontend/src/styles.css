@@ -1,112 +1,267 @@
+/* ===== DMS Design System – Blue & White ===== */
+
+:root {
+  /* ── Primary palette ── */
+  --color-primary:       #1a73e8;
+  --color-primary-dark:  #1557b0;
+  --color-primary-light: #e8f0fe;
+  --color-primary-hover: #d2e3fc;
+
+  /* ── Neutrals ── */
+  --color-white:       #ffffff;
+  --color-bg:          #f5f7fa;
+  --color-bg-alt:      #eef1f6;
+  --color-border:      #dae0e8;
+  --color-border-light:#edf0f5;
+
+  /* ── Text ── */
+  --color-text:        #1c1c2e;
+  --color-text-muted:  #5f6c7b;
+  --color-text-light:  #8a95a3;
+  --color-text-link:   #1a73e8;
+
+  /* ── Danger ── */
+  --color-danger:       #d93025;
+  --color-danger-light: #fce8e6;
+
+  /* ── Spacing ── */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  12px;
+  --space-lg:  16px;
+  --space-xl:  20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
+  /* ── Typography ── */
+  --font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --text-xs:   12px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --line-height: 1.5;
+
+  /* ── Shape ── */
+  --radius-sm: 6px;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ── Shadows (no gradients) ── */
+  --shadow-sm:  0 1px 3px rgba(26,115,232,0.06);
+  --shadow:     0 2px 8px rgba(26,115,232,0.08);
+  --shadow-lg:  0 8px 24px rgba(26,115,232,0.10);
+  --shadow-xl:  0 12px 36px rgba(26,115,232,0.12);
+
+  /* ── Transitions ── */
+  --speed: 0.18s ease;
+  --speed-slow: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+
+/* ===== Reset ===== */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
+  font-family: var(--font-family);
+  font-size: var(--text-base);
+  line-height: var(--line-height);
+  color: var(--color-text);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+
+/* ===== Auth page wrapper ===== */
 .body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f4;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 40px 20px;
+  font-family: var(--font-family);
+  background: var(--color-bg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 40px 20px;
 }
 
 .container {
-    background: #fff;
-    padding: 30px 40px;
-    border-radius: 8px;
-    width: 300px;
-    margin-top: 10px;
-    text-align: center;
+  background: var(--color-white);
+  padding: 40px;
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
 }
 
+
+/* ===== Typography ===== */
 h2 {
-    text-align: center;
-    margin-bottom: 20px;
+  text-align: center;
+  margin-bottom: var(--space-xl);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
 }
 
+
+/* ===== Form elements ===== */
 input,
 select {
-    width: 100%;
-    padding: 8px;
-    margin-bottom: 15px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    flex: 1;
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: var(--space-lg);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: var(--font-family);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-white);
+  outline: none;
+  transition: border-color var(--speed), box-shadow var(--speed);
 }
 
-form button {
-    width: 100%;
-    padding: 10px;
-    background: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    margin-bottom: 10px;
+input:focus,
+select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
 }
 
-form button:hover {
-    background: #0056b3;
-}
-
-.icon-btn {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    padding: 5px;
-    border-radius: 6px;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.icon-btn img {
-    width: 30px;
-    height: 30px;
-}
-
-.edit-btn {
-    padding-left: 70px;
-}
-
-.edit-btn:hover {
-    background: rgba(0, 123, 255, 0.12);
-}
-
-.delete-btn:hover {
-    background: rgba(220, 53, 69, 0.12);
-}
-
-.error-msg{
-    color: red;
-    display: block;
-    margin-bottom: 10px;
-}
-
-.label-input-div {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 10px;
+input::placeholder {
+  color: var(--color-text-light);
 }
 
 label {
-    width: 100px;
-    white-space: nowrap;
-    font-weight: 500;
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xs);
+  text-align: left;
+}
+
+form button {
+  width: 100%;
+  padding: 11px;
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius);
+  font-size: var(--text-md);
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-md);
+  transition: background var(--speed), box-shadow var(--speed);
+}
+
+form button:hover {
+  background: var(--color-primary-dark);
+  box-shadow: 0 2px 8px rgba(26,115,232,0.18);
+}
+
+form button:active {
+  transform: translateY(1px);
+}
+
+form button:disabled {
+  background: var(--color-border);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+
+/* ===== Icon buttons ===== */
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--speed);
+}
+
+.icon-btn:hover {
+  background: var(--color-primary-light);
+}
+
+.icon-btn img {
+  width: 20px;
+  height: 20px;
+}
+
+
+/* ===== Edit / delete action buttons ===== */
+.edit-btn {
+  padding-left: 70px;
+}
+
+.edit-btn:hover {
+  background: var(--color-primary-light);
+}
+
+.delete-btn:hover {
+  background: var(--color-danger-light);
+}
+
+
+/* ===== Error messages ===== */
+.error-msg {
+  color: var(--color-danger);
+  display: block;
+  margin-bottom: var(--space-md);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+
+/* ===== Label + Input rows ===== */
+.label-input-div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.label-input-div label {
+  width: 100px;
+  white-space: nowrap;
+  font-weight: 500;
+  margin-bottom: 0;
+}
+
+
+/* ===== Auth footer links ===== */
+.footer {
+  display: block;
+  margin-top: var(--space-lg);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.footer a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.footer a:hover {
+  text-decoration: underline;
 }

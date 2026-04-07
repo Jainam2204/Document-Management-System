@@ -1,0 +1,9 @@
+/* ── Verify component ── */
+
+:host {
+  display: block;
+}
+
+.container h2 {
+  color: var(--color-primary);
+}

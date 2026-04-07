@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, take } from 'rxjs';
+import { Subscription, take, Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FileService, FileRecord, FolderRecord } from '../../../../services/file/file.service';
 import { SearchFilterService } from '../../../../services/search-filter/search-filter.service';
@@ -44,7 +45,14 @@ export class HomeComponent implements OnInit, OnDestroy {
     shareSuccessMessage = '';
     dragActive = false;
     dragCounter = 0;
-    minDate: string = '';   
+    minDate: string = '';
+
+    emailSuggestions: Array<{ name: string; email: string }> = [];
+    filteredSuggestions: Array<{ name: string; email: string }> = [];
+    showSuggestions = false;
+    private emailSearchSubject = new Subject<string>();
+
+    publicShareUrl = '';
 
     @ViewChild('uploadHelper') uploadHelper!: UploadHelperComponent;
 
@@ -59,12 +67,14 @@ export class HomeComponent implements OnInit, OnDestroy {
     private searchSubscription?: Subscription;
     private uploadSub!: Subscription;
     private routeSub!: Subscription;
+    private emailSearchSub?: Subscription;
 
     constructor(
         private fileService: FileService,
         private searchFilterService: SearchFilterService,
         private storageService: StorageService,
         private toast: ToastService,
+        private userService: UserService,
         private route: ActivatedRoute,
         private router: Router,
         private routeHelper: RouteHelperService
@@ -91,12 +101,40 @@ export class HomeComponent implements OnInit, OnDestroy {
 
         const today = new Date();
         this.minDate = today.toISOString().split('T')[0];
+
+        this.emailSearchSub = this.emailSearchSubject.pipe(
+            debounceTime(300),
+            distinctUntilChanged(),
+            switchMap((query) => {
+                if (!query || query.length < 2) {
+                    return [];
+                }
+                return this.userService.searchUsers(query);
+            })
+        ).subscribe({
+            next: (res: any) => {
+                if (res?.success && res?.users) {
+                    this.filteredSuggestions = res.users.filter(
+                        (u: any) => !this.shareEmails.includes(u.email.toLowerCase())
+                    );
+                    this.showSuggestions = this.filteredSuggestions.length > 0;
+                } else {
+                    this.filteredSuggestions = [];
+                    this.showSuggestions = false;
+                }
+            },
+            error: () => {
+                this.filteredSuggestions = [];
+                this.showSuggestions = false;
+            }
+        });
     }
 
     ngOnDestroy() {
         this.uploadSub?.unsubscribe();
         this.routeSub?.unsubscribe();
         this.searchSubscription?.unsubscribe();
+        this.emailSearchSub?.unsubscribe();
     }
 
 
@@ -385,7 +423,17 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.shareExpiryDate = '';
         this.shareExpiryTime = '';
         this.shareWithEveryone = false;
+        this.publicShareUrl = '';
+        this.shareSuccessMessage = '';
+        this.shareEmails = [];
+        this.shareEmailInput = '';
+        this.filteredSuggestions = [];
+        this.showSuggestions = false;
         this.actionDialogInput = mode === 'rename' ? record.name : '';
+
+        if (mode === 'share' && !this.isFileRecord(record)) {
+            this.shareWithEveryone = false;
+        }
     }
 
     closeActionDialog() {
@@ -399,6 +447,14 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.shareEmailInput = '';
         this.shareWithEveryone = false;
         this.shareSuccessMessage = '';
+        this.publicShareUrl = '';
+        this.filteredSuggestions = [];
+        this.showSuggestions = false;
+    }
+
+    /** Whether the current share target is a file (vs folder) */
+    get isShareTargetFile(): boolean {
+        return !!this.actionDialogRecord && this.isFileRecord(this.actionDialogRecord);
     }
 
     submitRename() {
@@ -457,7 +513,6 @@ export class HomeComponent implements OnInit, OnDestroy {
                 if (res.success) {
                     this.toast.success(`${isFile ? 'File' : 'Folder'} deleted successfully.`);
                     this.removeDeletedRecord(this.actionDialogRecord!);
-                    // this.storageService.refreshStorage();
                     this.closeActionDialog();
                 } else {
                     this.actionDialogError = res.message || 'Delete failed.';
@@ -475,54 +530,113 @@ export class HomeComponent implements OnInit, OnDestroy {
             return;
         }
 
-        console.log('shareddd');
+        if (this.shareWithEveryone && this.isShareTargetFile) {
+            this.submitPublicShare();
+            return;
+        }
 
         this.actionDialogLoading = true;
         this.actionDialogError = '';
         this.shareSuccessMessage = '';
 
         const resourceType = this.isFileRecord(this.actionDialogRecord) ? 'file' : 'folder';
-        const expiry = this.shareExpiryDate ? new Date(this.shareExpiryDate).toISOString() : undefined;
 
-        this.fileService.shareWithUsers(resourceType, this.actionDialogRecord._id, this.shareEmails, expiry, this.shareWithEveryone).subscribe({
+        let expiry: string | undefined;
+        if (this.shareExpiryDate) {
+            const d = new Date(this.shareExpiryDate);
+            d.setHours(23, 59, 59, 999);
+            expiry = d.toISOString();
+        }
+
+        this.fileService.shareWithUsers(resourceType, this.actionDialogRecord._id, this.shareEmails, expiry, false).subscribe({
             next: (res) => {
                 this.actionDialogLoading = false;
                 if (res.success) {
-                    if (this.shareWithEveryone) {
-                        this.shareSuccessMessage = `Successfully shared with all registered users!`;
-                        this.toast.success('Shared with everyone');
-                    } else {
-                        const sharedCount = res.sharedCount || this.shareEmails.length;
-                        this.shareSuccessMessage = `Successfully shared with ${sharedCount} user(s)!`;
-                        this.toast.success(`Shared with ${sharedCount} user(s)`);
-                        this.shareEmails = [];
-                        this.shareEmailInput = '';
-                    }
+                    const sharedCount = res.sharedCount || this.shareEmails.length;
+                    this.toast.success(`Shared with ${sharedCount} user(s)`);
+
                     if (res?.failedEmails && res.failedEmails.length > 0) {
                         const failedMessages = res?.failedEmails
                             .map((f: any) => `${f.email}: ${f.reason}`)
                             .join('\n');
-
                         this.toast.warning(`Some shares failed:\n${failedMessages}`);
-
                         this.actionDialogError = failedMessages;
+                    } else {
+                        this.closeActionDialog();
                     }
-
                 } else {
                     this.actionDialogError = res.message || 'Failed to share.';
                 }
             },
             error: (err) => {
                 this.actionDialogLoading = false;
-                const failedMessages = err?.error?.failedEmails
-                    .map((f: any) => `${f.email}: ${f.reason}`)
-                    .join('\n');
-
-                this.toast.warning(`Some shares failed:\n${failedMessages}`);
-
-                this.actionDialogError = failedMessages;
+                if (err?.error?.failedEmails) {
+                    const failedMessages = err.error.failedEmails
+                        .map((f: any) => `${f.email}: ${f.reason}`)
+                        .join('\n');
+                    this.toast.warning(`Some shares failed:\n${failedMessages}`);
+                    this.actionDialogError = failedMessages;
+                } else {
+                    this.actionDialogError = err?.error?.message || 'Failed to share.';
+                }
             }
         });
+    }
+
+    submitPublicShare() {
+        if (!this.actionDialogRecord || !this.isFileRecord(this.actionDialogRecord)) {
+            return;
+        }
+
+        this.actionDialogLoading = true;
+        this.actionDialogError = '';
+        this.publicShareUrl = '';
+
+        let expiry: string | undefined;
+        if (this.shareExpiryDate) {
+            const d = new Date(this.shareExpiryDate);
+            d.setHours(23, 59, 59, 999);
+            expiry = d.toISOString();
+        }
+
+        this.fileService.generatePublicShareLink(this.actionDialogRecord._id, expiry).subscribe({
+            next: (res) => {
+                this.actionDialogLoading = false;
+                if (res.success && res.url) {
+                    this.publicShareUrl = res.url;
+                    this.shareSuccessMessage = 'Public download link generated!';
+                    this.toast.success('Public share link generated');
+                } else {
+                    this.actionDialogError = res.message || 'Failed to generate link.';
+                }
+            },
+            error: (err) => {
+                this.actionDialogLoading = false;
+                this.actionDialogError = err?.error?.message || 'Failed to generate share link.';
+            }
+        });
+    }
+
+    onEmailInputChange(value: string) {
+        this.shareEmailInput = value;
+        this.emailSearchSubject.next(value);
+    }
+
+    selectSuggestion(suggestion: { name: string; email: string }) {
+        const email = suggestion.email.toLowerCase();
+        if (!this.shareEmails.includes(email)) {
+            this.shareEmails.push(email);
+        }
+        this.shareEmailInput = '';
+        this.showSuggestions = false;
+        this.filteredSuggestions = [];
+        this.actionDialogError = '';
+    }
+
+    hideSuggestions() {
+        setTimeout(() => {
+            this.showSuggestions = false;
+        }, 200);
     }
 
     addEmail(event?: Event) {
@@ -549,11 +663,23 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.shareEmails.push(email.toLowerCase());
         this.shareEmailInput = '';
         this.actionDialogError = '';
+        this.showSuggestions = false;
     }
 
     removeEmail(index: number) {
         this.shareEmails.splice(index, 1);
         this.actionDialogError = '';
+    }
+
+    copyPublicShareUrl() {
+        if (!this.publicShareUrl) {
+            return;
+        }
+        navigator.clipboard?.writeText(this.publicShareUrl).then(() => {
+            this.toast.success('Download link copied to clipboard!');
+        }).catch(() => {
+            this.toast.error('Could not copy link.');
+        });
     }
 
     copyShareUrl() {
@@ -656,5 +782,3 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.loadData();
     }
 }
-
-

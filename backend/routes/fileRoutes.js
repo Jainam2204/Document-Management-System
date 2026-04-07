@@ -22,6 +22,9 @@ import {
     shareWithUsers,
     getSharedWithMe,
     getSharedFolderContents,
+    checkStorageAvailability,
+    generatePublicShareLink,
+    accessPublicShare,
     // generateShareLink,
     // getSharedResource,
     // getFileViewUrl
@@ -29,6 +32,7 @@ import {
 
 const router = express.Router();
 
+router.get('/check-storage', authMiddleware, checkStorageAvailability);
 router.post('/upload', authMiddleware, upload.single('file'), uploadFile);
 router.post('/delete/:id', authMiddleware, updateFileDeleteStatus);
 router.post('/rename/:id', authMiddleware, renameFile);
@@ -49,6 +53,8 @@ router.post('/share-with-user/:type/:id', authMiddleware, shareResource);
 router.post('/share-with-users/:type/:id', authMiddleware, shareWithUsers);
 router.get('/shared-with-me', authMiddleware, getSharedWithMe);
 router.get('/shared-with-me/:id', authMiddleware, getSharedFolderContents);
+router.post('/public-share/:id', authMiddleware, generatePublicShareLink);
+router.get('/public/:token', accessPublicShare);
 // router.post('/share/:type/:id', authMiddleware, generateShareLink);
 // router.get('/share/:token', getSharedResource);
 // router.get('/view/:id', authMiddleware, getFileViewUrl);
