@@ -3,5 +3,6 @@ export interface User {
     name: string;       
     email: string;      
     storageUsed: number;
+    storageLimit: number;
     isAdmin: boolean;   
 }

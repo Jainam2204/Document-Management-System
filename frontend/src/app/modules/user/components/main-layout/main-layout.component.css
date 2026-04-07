@@ -1,9 +1,4 @@
 :host {
-  --color-bg-page: #f4f6f8;
-  --space-lg: 24px;
-  --space-md: 16px;
-  --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -18,13 +13,12 @@
 .main-content {
   flex: 1;
   overflow-y: auto;
-  background: var(--color-bg-page);
-  /* padding: var(--space-lg); */
-  transition: margin-left var(--transition-base);
+  background: var(--color-bg, #f5f7fa);
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (max-width: 768px) {
   .main-content {
-    padding: var(--space-md);
+    padding: var(--space-lg, 16px);
   }
 }
