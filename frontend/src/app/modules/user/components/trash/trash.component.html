@@ -1,69 +1,94 @@
 <div class="drive">
   <div class="drive__header">
-    <div class="drive__breadcrumb">
-      <div class="drive__title-row">
-        <span class="drive__folder-title">Trash</span>
-      </div>
-    </div>
+    <!-- <h2 class="drive__title">Trash</h2> -->
+    <p class="drive__subtitle">Items will be permanently deleted after 30 days</p>
   </div>
 
-  <div class="drive__loading" *ngIf="loading">Loading trash...</div>
+  <div class="drive__loading" *ngIf="loading">Loading...</div>
 
+  <!-- FOLDERS -->
   <div class="drive__section" *ngIf="folders.length > 0">
-    <div class="drive__section-title">Deleted folders</div>
-    <div class="drive__grid drive__grid--folders">
-      <div class="folder-card" *ngFor="let folder of folders">
-        <div class="folder-card__left">
-          <span class="folder-card__emoji" aria-hidden="true">🗑️</span>
-          <div>
-            <div class="folder-card__name-text">{{ folder.name }}</div>
-            <div class="folder-card__meta">Deleted {{ formatDate(folder.deletedAt) }}</div>
+    <div class="drive__section-title">Folders</div>
+
+    <div class="drive__grid">
+      <div class="card" *ngFor="let folder of folders">
+        
+        <div class="card__top">
+          <div class="card__icon">🗑️</div>
+
+          <div class="card__info">
+            <div class="card__name">{{ folder.name }}</div>
+            <div class="card__meta">
+              Deleted {{ formatDate(folder.deletedAt) }}
+            </div>
           </div>
         </div>
-        <div class="folder-card__actions">
-          <button type="button" class="secondary" (click)="restoreItem(folder)">Restore</button>
-          <button type="button" class="danger" (click)="openPermanentDeleteDialog(folder)">Delete permanently</button>
+
+        <div class="card__actions">
+          <button class="btn btn--primary" (click)="restoreItem(folder)">
+            Restore
+          </button>
+
+          <button class="btn btn--danger" (click)="openPermanentDeleteDialog(folder)">
+            Delete
+          </button>
         </div>
+
       </div>
     </div>
   </div>
 
+  <!-- FILES -->
   <div class="drive__section" *ngIf="files.length > 0">
-    <div class="drive__section-title">Deleted files</div>
-    <div class="drive__grid drive__grid--files">
-      <div class="file-card" *ngFor="let file of files">
-        <div class="file-card__top">
-          <div class="file-card__text">
-            <div class="file-card__name">{{ file.name }}</div>
-            <div class="file-card__meta">{{ file.size | size }} • Deleted {{ formatDate(file.deletedAt) }}</div>
-          </div>
-          <div class="file-card__actions">
-            <button type="button" class="secondary" (click)="restoreItem(file)">Restore</button>
-            <button type="button" class="danger" (click)="openPermanentDeleteDialog(file)">Delete permanently</button>
+    <div class="drive__section-title">Files</div>
+
+    <div class="drive__grid">
+      <div class="card" *ngFor="let file of files">
+
+        <div class="card__top">
+          <div class="card__icon">📄</div>
+
+          <div class="card__info">
+            <div class="card__name">{{ file.name }}</div>
+            <div class="card__meta">
+              {{ file.size | size }} • Deleted {{ formatDate(file.deletedAt) }}
+            </div>
           </div>
         </div>
+
+        <div class="card__actions">
+          <button class="btn btn--primary" (click)="restoreItem(file)">
+            Restore
+          </button>
+
+          <button class="btn btn--danger" (click)="openPermanentDeleteDialog(file)">
+            Delete
+          </button>
+        </div>
+
       </div>
     </div>
   </div>
 
+  <!-- EMPTY -->
   <div class="drive__empty" *ngIf="!loading && folders.length === 0 && files.length === 0">
-    <p>Your Trash is empty.</p>
-    <p>Deleted files and folders will appear here for 30 days before permanent removal.</p>
+    <h3>Trash is empty</h3>
+    <p>Deleted files and folders will appear here</p>
   </div>
 
+  <!-- DIALOG -->
   <div *ngIf="actionDialogMode === 'permanent'" class="dialog-backdrop" (click)="closeActionDialog()">
     <div class="dialog" (click)="$event.stopPropagation()">
-      <h3 class="dialog-title">Delete permanently</h3>
+      <h3>Delete permanently</h3>
+
       <p>
-        Are you sure you want to permanently delete "{{ actionDialogRecord?.name }}"?
-        This action cannot be undone.
+        Are you sure you want to delete
+        <strong>{{ actionDialogRecord?.name }}</strong>?
       </p>
-      <p *ngIf="actionDialogError" class="dialog-error">{{ actionDialogError }}</p>
+
       <div class="dialog__actions">
-        <button type="button" (click)="closeActionDialog()" [disabled]="actionDialogLoading">Cancel</button>
-        <button type="button" class="danger" (click)="confirmPermanentDelete()" [disabled]="actionDialogLoading">
-          Delete permanently
-        </button>
+        <button class="btn" (click)="closeActionDialog()">Cancel</button>
+        <button class="btn btn--danger" (click)="confirmPermanentDelete()">Delete</button>
       </div>
     </div>
   </div>
