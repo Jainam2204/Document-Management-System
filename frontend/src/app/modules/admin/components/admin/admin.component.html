@@ -21,6 +21,7 @@
                         <th>Name</th>
                         <th>Email</th>
                         <th>Storage Used</th>
+                        <th>Total Storage</th>
                         <th>Admin</th>
                     </tr>
                 </thead>
@@ -30,6 +31,7 @@
                         <td>{{ user.name }}</td>
                         <td>{{ user.email }}</td>
                         <td>{{ user.storageUsed | size }}</td>
+                        <td>{{ user.storageLimit | size }}</td>
                         <td>
                             <input type="checkbox" class="admin-checkbox" [checked]="user.isAdmin"
                                 (change)="toggleAdmin(user, $event)"

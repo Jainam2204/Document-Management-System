@@ -12,11 +12,7 @@ export class FileIconPipe implements PipeTransform {
 
     const extension = this.getFileExtension(fileName).toLowerCase();
 
-    // Try to load extension-specific PNG, fallback to default
     const iconPath = `/icons/${extension}.png`;
-
-    // For now, we'll return the path - in a real implementation,
-    // you might want to check if the file exists or use a default mapping
     return iconPath;
   }
 

@@ -79,7 +79,7 @@
         </div>
     </div>
 
-    <div *ngIf="actionDialogMode" class="dialog-backdrop" (click)="closeActionDialog()">
+    <div *ngIf="actionDialogMode" class="dialog-backdrop" (click)="closeActionDialog()" [class.disabled]="dragActive">
       <div class="dialog" (click)="$event.stopPropagation()">
         <h3 class="dialog-title">
           {{ actionDialogMode === 'rename' ? 'Rename ' + (actionDialogRecord && !isFileRecord(actionDialogRecord) ? 'Folder' : 'File') : actionDialogMode === 'delete' ? 'Delete Confirmation' : 'Share item' }}
@@ -156,7 +156,7 @@
           </div>
 
           <label for="share-date">Expiry date (optional)</label>
-          <input id="share-date" type="date" class="dialog__input" [(ngModel)]="shareExpiryDate" />
+          <input id="share-date" type="date" [min]="minDate" class="dialog__input" [(ngModel)]="shareExpiryDate" />
 
           <div *ngIf="shareSuccessMessage" class="share-success" style="margin-top: 12px; color: #1e8e3e; font-weight: 500;">
             {{ shareSuccessMessage }}

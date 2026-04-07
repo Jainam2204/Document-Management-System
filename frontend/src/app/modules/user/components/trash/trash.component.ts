@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FileService, FileRecord, FolderRecord } from '../../../../services/file/file.service';
 import { ToastService } from '../../../../services/toast/toast.service';
 import { SizePipe } from '../../../../shared/pipes/size/size.pipe';
+import { StorageService } from '../../../../services/storage/storage.service';
 
 
 @Component({
@@ -23,7 +24,8 @@ export class TrashComponent implements OnInit {
 
   constructor(
     private fileService: FileService,
-    private toast: ToastService
+    private toast: ToastService,
+    private storageService: StorageService
   ) {}
 
   ngOnInit()  {
@@ -78,7 +80,6 @@ export class TrashComponent implements OnInit {
         if (res.success) {
           this.toast.success(`${this.isFileRecord(record) ? 'File' : 'Folder'} restored successfully.`);
           this.loadTrashItems();
-
         } else {
           this.toast.error(res.message || 'Restore failed.');
         }
@@ -107,6 +108,7 @@ export class TrashComponent implements OnInit {
           this.toast.success(`${this.isFileRecord(record) ? 'File' : 'Folder'} permanently deleted.`);
           this.loadTrashItems();
           this.closeActionDialog();
+          this.storageService.refreshStorage();
         } else {
           this.actionDialogError = res.message || 'Permanent delete failed.';
         }

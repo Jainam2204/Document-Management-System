@@ -104,7 +104,8 @@ export const register = async (req, res) => {
         const userCount = await Counter.findOneAndUpdate(
             { collectionName: 'users' },
             { $inc: { count: 1 } },
-            { new: true, upsert: true }
+            { returnDocument: 'after', upsert: true }
+            // { new: true, upsert: true }
         );
 
         const now = new Date();
