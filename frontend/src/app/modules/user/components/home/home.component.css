@@ -572,6 +572,98 @@
 }
 
 
+/* ── Email autocomplete ── */
+.email-input-wrapper {
+  position: relative;
+}
+
+.email-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--color-white, #fff);
+  border: 1.5px solid var(--color-border, #dae0e8);
+  border-top: none;
+  border-radius: 0 0 var(--radius, 8px) var(--radius, 8px);
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(26,115,232,0.10);
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--speed, 0.18s ease);
+}
+
+.suggestion-item:hover {
+  background: var(--color-primary-light, #e8f0fe);
+}
+
+.suggestion-name {
+  font-size: var(--text-base, 14px);
+  font-weight: 500;
+  color: var(--color-text, #1c1c2e);
+}
+
+.suggestion-email {
+  font-size: var(--text-xs, 12px);
+  color: var(--color-text-muted, #5f6c7b);
+}
+
+
+/* ── Public share URL display ── */
+.public-share-url-box {
+  margin-top: var(--space-lg, 16px);
+  padding: 14px;
+  background: var(--color-primary-light, #e8f0fe);
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--color-primary-hover, #d2e3fc);
+}
+
+.public-share-url-label {
+  display: block;
+  font-size: var(--text-xs, 12px);
+  font-weight: 600;
+  color: var(--color-primary, #1a73e8);
+  margin-bottom: var(--space-sm, 8px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.public-share-url-row {
+  display: flex;
+  gap: var(--space-sm, 8px);
+  align-items: center;
+}
+
+.public-share-url-input {
+  flex: 1;
+  margin-top: 0 !important;
+  background: var(--color-white, #fff);
+  font-size: var(--text-sm, 13px);
+  cursor: text;
+}
+
+.chip--copy {
+  background: var(--color-primary, #1a73e8);
+  color: var(--color-white, #fff);
+  border-color: var(--color-primary, #1a73e8);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.chip--copy:hover {
+  background: var(--color-primary-dark, #1557b0);
+  border-color: var(--color-primary-dark, #1557b0);
+}
+
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .drive {

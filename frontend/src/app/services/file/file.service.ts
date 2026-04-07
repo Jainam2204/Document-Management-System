@@ -90,6 +90,20 @@ interface ShareLinkResponse {
     message?: string;
 }
 
+interface CheckStorageResponse {
+    success: boolean;
+    available: boolean;
+    remaining: number;
+    required: number;
+}
+
+interface PublicShareResponse {
+    success: boolean;
+    message: string;
+    url: string;
+    expiresAt: string | null;
+}
+
 interface ShareWithUserResponse {
     success: boolean;
     message: string;
@@ -269,5 +283,17 @@ export class FileService {
 
     getSharedFolderContents(folderId: string): Observable<GetFolderContentsResponse> {
         return this.http.get<GetFolderContentsResponse>(this.url + `/shared-with-me/${folderId}`);
+    }
+
+    checkStorage(totalSize: number): Observable<CheckStorageResponse> {
+        return this.http.get<CheckStorageResponse>(this.url + '/check-storage', {
+            params: { size: totalSize.toString() }
+        });
+    }
+
+    generatePublicShareLink(fileId: string, expiry?: string): Observable<PublicShareResponse> {
+        return this.http.post<PublicShareResponse>(this.url + `/public-share/${fileId}`, {
+            expiry: expiry || null
+        });
     }
 }

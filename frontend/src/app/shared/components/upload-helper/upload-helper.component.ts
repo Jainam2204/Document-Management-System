@@ -2,6 +2,7 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../../services/file/file.service';
 import { ToastService } from '../../../services/toast/toast.service';
+import { StorageService } from '../../../services/storage/storage.service';
 
 @Component({
     selector: 'app-upload-helper',
@@ -21,10 +22,31 @@ export class UploadHelperComponent {
 
     constructor(
         private fileService: FileService,
-        private toast: ToastService
+        private toast: ToastService,
+        private storageService: StorageService
     ) {}
 
     uploadFile(file: File, parentId: string | null) {
+        this.fileService.checkStorage(file.size).subscribe({
+            next: (res) => {
+                if (!res?.success || !res.available) {
+                    const remainingMB = res?.remaining ? (res.remaining / (1024 * 1024)).toFixed(1) : '0';
+                    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                    this.toast.error(
+                        `Not enough storage. File size: ${fileSizeMB} MB, Available: ${remainingMB} MB`
+                    );
+                    return;
+                }
+                this.doUploadFile(file, parentId);
+            },
+            error: (err) => {
+                console.warn('Storage check failed, proceeding with upload:', err);
+                this.doUploadFile(file, parentId);
+            }
+        });
+    }
+
+    private doUploadFile(file: File, parentId: string | null) {
         this.toast.warning('Uploading ' + file.name + '...');
 
         this.fileService.uploadFile(file, parentId).subscribe({
@@ -33,6 +55,7 @@ export class UploadHelperComponent {
                     this.toast.success(file.name + ' uploaded successfully!');
                     this.fileUploadSuccess.emit(res.file);
                     this.fileService.fileUploaded$.next();
+                    this.storageService.refreshStorage();
                 } else {
                     this.toast.error(res?.message || 'Failed to upload file');
                 }
@@ -56,9 +79,29 @@ export class UploadHelperComponent {
             this.uploadFolder(folderFiles, parentId);
         }
 
-        normalFiles.forEach((file) => {
-            this.uploadFile(file, parentId);
-        });
+        if (normalFiles.length > 0) {
+            const totalSize = normalFiles.reduce((sum, f) => sum + f.size, 0);
+            this.fileService.checkStorage(totalSize).subscribe({
+                next: (res) => {
+                    if (!res?.success || !res.available) {
+                        const remainingMB = res?.remaining ? (res.remaining / (1024 * 1024)).toFixed(1) : '0';
+                        const totalMB = (totalSize / (1024 * 1024)).toFixed(1);
+                        this.toast.error(
+                            `Not enough storage for ${normalFiles.length} file(s). Total: ${totalMB} MB, Available: ${remainingMB} MB`
+                        );
+                        return;
+                    }
+                    normalFiles.forEach((file) => {
+                        this.doUploadFile(file, parentId);
+                    });
+                },
+                error: () => {
+                    normalFiles.forEach((file) => {
+                        this.doUploadFile(file, parentId);
+                    });
+                }
+            });
+        }
     }
 
     private readDataTransferFiles(dataTransfer: DataTransfer): Promise<File[]> {
@@ -148,6 +191,31 @@ export class UploadHelperComponent {
             return;
         }
 
+        const totalFolderSize = files.reduce((sum, f) => sum + f.size, 0);
+
+        this.fileService.checkStorage(totalFolderSize).subscribe({
+            next: (res) => {
+                if (!res?.success || !res.available) {
+                    const remainingMB = res?.remaining ? (res.remaining / (1024 * 1024)).toFixed(1) : '0';
+                    const totalMB = (totalFolderSize / (1024 * 1024)).toFixed(1);
+                    this.toast.error(
+                        `Not enough storage for folder "${parsed.rootName}". Total: ${totalMB} MB, Available: ${remainingMB} MB`
+                    );
+                    return;
+                }
+                this.doUploadFolder(parsed, parentId);
+            },
+            error: () => {
+                this.doUploadFolder(parsed, parentId);
+            }
+        });
+    }
+
+    private doUploadFolder(parsed: {
+        rootName: string;
+        fileItems: Array<{ file: File; folderPath: string; relativePath: string }>;
+        subPaths: string[];
+    }, parentId: string | null) {
         this.uploadCancelled = false;
         this.folderUploadLoading = true;
         this.uploading = true;
@@ -241,6 +309,7 @@ export class UploadHelperComponent {
                 }
                 if (successCount > 0) {
                     this.fileService.fileUploaded$.next();
+                    this.storageService.refreshStorage();
                 }
                 this.folderUploadCompleted.emit({ successCount, failureCount });
                 return;
@@ -291,9 +360,3 @@ export class UploadHelperComponent {
         this.uploadCancelled = false;
     }
 }
-
-
-
-/*
-    
-*/

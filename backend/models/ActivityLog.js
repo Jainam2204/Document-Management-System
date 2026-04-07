@@ -25,7 +25,7 @@ const activityLogSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-activityLogSchema.index({ user: 1 });
-activityLogSchema.index({ user: 1, createdAt: -1 });
+activityLogSchema.index({ userId: 1 });
+activityLogSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model("ActivityLog", activityLogSchema);

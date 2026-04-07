@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { PutObjectCommand, HeadObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, CopyObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
 import s3 from '../config/s3.js';
 import File from '../models/File.js';
 import Folder from '../models/Folder.js';
@@ -7,6 +8,7 @@ import User from '../models/User.js';
 import Counter from '../models/Counter.js';
 // import ShareLink from '../models/ShareLink.js';
 import Share from '../models/Share.js';
+import PublicShare from '../models/PublicShare.js';
 import ActivityLog from '../models/ActivityLog.js';
 import { generateToken } from '../utils/generateToken.js';
 import { generateDownloadUrl } from '../utils/generateDownloadURL.js';
@@ -186,10 +188,19 @@ const cleanupExpiredTrash = async (ownerId) => {
     }).lean();
 
     if (expiredFiles.length) {
-        // const fileS3Keys = expiredFiles.map((file) => file.s3Key);
+        const totalFileSize = expiredFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+
         await deleteS3Objects(expiredFiles.map((file) => file.s3Key));
-        // const fileIds = expiredFiles.map((file) => file._id);
         await File.deleteMany({ _id: { $in: expiredFiles.map((file) => file._id) } });
+
+        if (totalFileSize > 0) {
+            await updateUserStorage(ownerId, -totalFileSize);
+        }
+        for (const file of expiredFiles) {
+            if (file.folder && (file.size || 0) > 0) {
+                await updateFolderSizeAncestors(file.folder, -(file.size || 0), ownerId);
+            }
+        }
     }
 
     const expiredFolders = await Folder.find({
@@ -202,14 +213,21 @@ const cleanupExpiredTrash = async (ownerId) => {
         try {
             const descendantFolderIds = await findDescendantFolderIds([folder._id], ownerId);
             const filesToDelete = await File.find({ owner: ownerId, folder: { $in: descendantFolderIds } }).lean();
-            if (filesToDelete.length) {
-                // const fileS3Keys = expiredFiles.map((file) => file.s3Key);
-                await deleteS3Objects(filesToDelete.map((file) => file.s3Key));
 
-                // const fileIds = expiredFiles.map((file) => file._id);
+            const totalSize = filesToDelete.reduce((sum, file) => sum + (file.size || 0), 0);
+
+            if (filesToDelete.length) {
+                await deleteS3Objects(filesToDelete.map((file) => file.s3Key));
                 await File.deleteMany({ _id: { $in: filesToDelete.map((file) => file._id) } });
             }
             await Folder.deleteMany({ _id: { $in: descendantFolderIds }, owner: ownerId });
+
+            if (totalSize > 0) {
+                await updateUserStorage(ownerId, -totalSize);
+                if (folder.parentFolder) {
+                    await updateFolderSizeAncestors(folder.parentFolder, -totalSize, ownerId);
+                }
+            }
         } catch (error) {
             console.error('Error cleaning expired folder trash:', error);
         }
@@ -220,19 +238,6 @@ const cleanupExpiredTrash = async (ownerId) => {
 const softDeleteFolderTree = async (folderId, ownerId) => {
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
     const timestamp = new Date();
-
-    const rootFolder = await Folder.findOne({ _id: folderId, owner: ownerId, isDeleted: false })
-        .select('size parentFolder')
-        .lean();
-
-    const subtreeSize = await getFolderSubtreeSize(folderId, ownerId);
-    // if (subtreeSize > 0) {
-    //     await updateUserStorage(ownerId, -subtreeSize);
-    // }
-
-    // if (rootFolder && rootFolder.parentFolder) {
-    //     await updateFolderSizeAncestors(rootFolder.parentFolder, -subtreeSize, ownerId);
-    // }
 
     await Folder.updateMany(
         { _id: { $in: folderIds }, owner: ownerId, isDeleted: false },
@@ -249,10 +254,6 @@ const softDeleteFolderTree = async (folderId, ownerId) => {
 const restoreFolderTree = async (folderId, ownerId) => {
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
 
-    const rootFolder = await Folder.findOne({ _id: folderId, owner: ownerId, isDeleted: true })
-        .select('size parentFolder')
-        .lean();
-
     await Folder.updateMany(
         { _id: { $in: folderIds }, owner: ownerId, isDeleted: true },
         { $set: { isDeleted: false, deletedAt: null } }
@@ -262,16 +263,6 @@ const restoreFolderTree = async (folderId, ownerId) => {
         { owner: ownerId, folder: { $in: folderIds }, isDeleted: true },
         { $set: { isDeleted: false, deletedAt: null } }
     );
-
-    const subtreeSize = await getFolderSubtreeSize(folderId, ownerId, true);
-
-    if (subtreeSize > 0) {
-        await updateUserStorage(ownerId, subtreeSize);
-    }
-
-    if (rootFolder && rootFolder.parentFolder) {
-        await updateFolderSizeAncestors(rootFolder.parentFolder, subtreeSize, ownerId);
-    }
 };
 
 
@@ -287,12 +278,12 @@ const permanentlyDeleteFileById = async (fileId, ownerId) => {
         console.error('S3 object delete failed for file:', fileId, error);
     }
 
-    if (file.folder && !file.isDeleted) {
-        await updateFolderSizeAncestors(file.folder, -(file.size || 0), ownerId);
-    }
-
-    if (!file.isDeleted) {
-        await updateUserStorage(ownerId, -(file.size || 0));
+    const fileSize = file.size || 0;
+    if (fileSize > 0) {
+        if (file.folder) {
+            await updateFolderSizeAncestors(file.folder, -fileSize, ownerId);
+        }
+        await updateUserStorage(ownerId, -fileSize);
     }
 
     await File.deleteOne({ _id: fileId, owner: ownerId });
@@ -308,6 +299,9 @@ const permanentlyDeleteFolderById = async (folderId, ownerId) => {
 
     const folderIds = await findDescendantFolderIds([folderId], ownerId);
     const filesToDelete = await File.find({ owner: ownerId, folder: { $in: folderIds } }).lean();
+
+    const totalSize = filesToDelete.reduce((sum, file) => sum + (file.size || 0), 0);
+
     const fileKeys = filesToDelete.map((file) => file.s3Key).filter(Boolean);
     if (fileKeys.length) {
         await deleteS3Objects(fileKeys);
@@ -315,6 +309,14 @@ const permanentlyDeleteFolderById = async (folderId, ownerId) => {
 
     await File.deleteMany({ _id: { $in: filesToDelete.map((file) => file._id) } });
     await Folder.deleteMany({ _id: { $in: folderIds }, owner: ownerId });
+
+    if (totalSize > 0) {
+        await updateUserStorage(ownerId, -totalSize);
+        if (rootFolder.parentFolder) {
+            await updateFolderSizeAncestors(rootFolder.parentFolder, -totalSize, ownerId);
+        }
+    }
+
     return rootFolder;
 };
 
@@ -358,6 +360,45 @@ const getAllFilesInFolderTree = async (folderId, ownerId) => {
 
     return files;
 };
+
+export const checkStorageAvailability = async (req, res) => {
+    try {
+        const { size } = req.query;
+        const totalSize = parseInt(size, 10);
+
+        if (!totalSize || isNaN(totalSize) || totalSize <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Valid size parameter is required'
+            });
+        }
+
+        const user = await User.findById(req.user._id).select('storageUsed storageLimit').lean();
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        const remaining = Math.max(0, user.storageLimit - user.storageUsed);
+        const available = totalSize <= remaining;
+
+        return res.status(200).json({
+            success: true,
+            available,
+            remaining,
+            required: totalSize
+        });
+    } catch (error) {
+        console.error('Error in checkStorageAvailability:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to check storage availability'
+        });
+    }
+};
+
 
 export const uploadFile = async (req, res) => {
     try {
@@ -848,11 +889,7 @@ export const restoreFile = async (req, res) => {
         file.deletedAt = null;
         await file.save();
 
-        if (file.folder) {
-            await updateFolderSizeAncestors(file.folder, file.size || 0, req.user._id);
-        }
 
-        await updateUserStorage(req.user._id, file.size || 0);
 
         await ActivityLog.create({
             userId: file.owner,
@@ -1064,12 +1101,6 @@ export const updateFileDeleteStatus = async (req, res) => {
 
         file.isDeleted = true;
         file.deletedAt = new Date();
-
-        // if (file.folder) {
-        //     await updateFolderSizeAncestors(file.folder, -(file.size || 0), req.user._id);
-        // }
-
-        // await updateUserStorage(req.user._id, -(file.size || 0));
 
         await file.save();
 
@@ -1544,10 +1575,12 @@ export const shareResource = async (req, res) => {
         let expiresAt = null;
         if (expiry) {
             expiresAt = new Date(expiry);
-            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < startOfToday.getTime()) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Expiry date must be in the future'
+                    message: 'Expiry date must be today or in the future'
                 });
             }
         }
@@ -1628,10 +1661,12 @@ export const shareWithUsers = async (req, res) => {
         let expiresAt = null;
         if (expiry) {
             expiresAt = new Date(expiry);
-            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < startOfToday.getTime()) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Expiry date must be in the future'
+                    message: 'Expiry date must be today or in the future'
                 });
             }
         }
@@ -1682,11 +1717,15 @@ export const shareWithUsers = async (req, res) => {
                 });
 
                 const user = await User.findOne({ _id: resource.owner });
-                await sendEmail({
-                    to: targetUser.email,
-                    subject: `${type} shared with you: `,
-                    html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
-                });
+                try {
+                    await sendEmail({
+                        to: targetUser.email,
+                        subject: `${type} shared with you: `,
+                        html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
+                    })
+                } catch (error) {
+                    console.error('Failed to send share email:', error);
+                }
 
                 results.successful.push(trimmedEmail);
             } catch (emailError) {
@@ -1830,6 +1869,125 @@ export const getSharedFolderContents = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to fetch shared folder contents',
+        });
+    }
+};
+
+
+export const generatePublicShareLink = async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const { expiry } = req.body;
+
+        const file = await File.findOne({
+            _id: fileId,
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'File not found'
+            });
+        }
+
+        try {
+            const s3HeadReq = new HeadObjectCommand({
+                Bucket: process.env.AWS_BUCKET_NAME,
+                Key: file.s3Key
+            });
+            await s3.send(s3HeadReq);
+        } catch (headError) {
+            return res.status(404).json({
+                success: false,
+                message: 'File does not exist in storage'
+            });
+        }
+
+        let expiresAt = null;
+        if (expiry) {
+            expiresAt = new Date(expiry);
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < startOfToday.getTime()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Expiry date must be today or in the future'
+                });
+            }
+        }
+
+        const token = uuidv4();
+
+        await PublicShare.create({
+            fileId: file._id,
+            ownerId: req.user._id,
+            token,
+            expiresAt
+        });
+
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const publicUrl = `${protocol}://${host}/api/files/public/${token}`;
+
+        return res.status(201).json({
+            success: true,
+            message: 'Public share link generated successfully',
+            url: publicUrl,
+            expiresAt: expiresAt ? expiresAt.toISOString() : null
+        });
+    } catch (err) {
+        console.error('Error in generatePublicShareLink:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate share link'
+        });
+    }
+};
+
+
+export const accessPublicShare = async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        const publicShare = await PublicShare.findOne({ token });
+
+        if (!publicShare) {
+            return res.status(404).json({
+                success: false,
+                message: 'Share link is invalid or has expired'
+            });
+        }
+
+        if (publicShare.expiresAt && publicShare.expiresAt.getTime() <= Date.now()) {
+            await PublicShare.deleteOne({ _id: publicShare._id });
+            return res.status(410).json({
+                success: false,
+                message: 'This share link has expired'
+            });
+        }
+
+        const file = await File.findOne({
+            _id: publicShare.fileId,
+            isDeleted: false
+        });
+
+        if (!file) {
+            return res.status(404).json({
+                success: false,
+                message: 'Shared file no longer exists'
+            });
+        }
+
+        const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
+
+        return res.redirect(downloadUrl);
+    } catch (err) {
+        console.error('Error in accessPublicShare:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to access shared file'
         });
     }
 };

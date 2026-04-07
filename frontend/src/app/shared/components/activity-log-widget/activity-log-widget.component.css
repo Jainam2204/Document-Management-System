@@ -1,0 +1,134 @@
+.log-widget {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 900;
+    font-family: var(--font-family, 'Inter', sans-serif);
+    width: 280px;
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 4px 20px rgba(26, 115, 232, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+    background: var(--color-white, #fff);
+    border: 1px solid var(--color-border, #dae0e8);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.log-widget:hover {
+    box-shadow: 0 6px 24px rgba(26, 115, 232, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.log-widget__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--color-primary, #1a73e8);
+    color: var(--color-white, #fff);
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background 0.18s ease;
+}
+
+.log-widget__toggle:hover {
+    background: var(--color-primary-dark, #1557b0);
+}
+
+.log-widget__toggle-icon {
+    font-size: 16px;
+}
+
+.log-widget__toggle-text {
+    flex: 1;
+    text-align: left;
+}
+
+.log-widget__chevron {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.log-widget__chevron--up {
+    transform: rotate(180deg);
+}
+
+.log-widget__body {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.log-widget__loading,
+.log-widget__empty {
+    padding: 20px 16px;
+    text-align: center;
+    color: var(--color-text-muted, #5f6c7b);
+    font-size: 13px;
+}
+
+.log-widget__list {
+    padding: 4px 0;
+}
+
+.log-widget__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 16px;
+    transition: background 0.15s ease;
+}
+
+.log-widget__item:hover {
+    background: var(--color-bg, #f5f7fa);
+}
+
+.log-widget__item--login {
+    background: var(--color-primary-light, #e8f0fe);
+}
+
+.log-widget__item--login:hover {
+    background: var(--color-primary-hover, #d2e3fc);
+}
+
+.log-widget__item-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.log-widget__item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.log-widget__item-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text, #1c1c2e);
+}
+
+.log-widget__item-resource {
+    font-size: 12px;
+    color: var(--color-text-muted, #5f6c7b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+.log-widget__item-time {
+    font-size: 11px;
+    color: var(--color-text-muted, #5f6c7b);
+    margin-top: 2px;
+    opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .log-widget {
+        width: 240px;
+        bottom: 12px;
+        right: 12px;
+    }
+}
