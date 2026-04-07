@@ -38,12 +38,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     shareExpiryDate = '';
     shareExpiryTime = '';
     shareUrl = '';
-    shareEmails: string[] = [];  
-    shareEmailInput = '';        
-    shareWithEveryone = false;   
-    shareSuccessMessage = '';    
+    shareEmails: string[] = [];
+    shareEmailInput = '';
+    shareWithEveryone = false;
+    shareSuccessMessage = '';
     dragActive = false;
     dragCounter = 0;
+    minDate: string = '';   
 
     @ViewChild('uploadHelper') uploadHelper!: UploadHelperComponent;
 
@@ -87,6 +88,9 @@ export class HomeComponent implements OnInit, OnDestroy {
             this.searchTerm = searchTerm;
             this.applyFilters();
         });
+
+        const today = new Date();
+        this.minDate = today.toISOString().split('T')[0];
     }
 
     ngOnDestroy() {
@@ -175,7 +179,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
 
-    onFolderClick(folder: FolderRecord)  {
+    onFolderClick(folder: FolderRecord) {
         this.router.navigate(['/home', folder._id]);
     }
 
@@ -202,6 +206,8 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     onDrop(event: DragEvent) {
+        console.log("FILES:", event.dataTransfer?.files);
+        console.log("ITEMS:", event.dataTransfer?.items);
         event.preventDefault();
         event.stopPropagation();
         this.dragCounter = 0;
@@ -211,7 +217,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
     }
 
-    goBack()  {
+    goBack() {
         if (this.currentFolder?.parentFolder) {
             this.router.navigate(['/home', this.currentFolder.parentFolder]);
             return;
@@ -219,11 +225,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.router.navigate(['/home']);
     }
 
-    onFilterChange()  {
+    onFilterChange() {
         this.applyFilters();
     }
 
-    clearFilters()  {
+    clearFilters() {
         this.searchTerm = '';
         this.filterType = '';
         this.filterDateFrom = '';
@@ -244,7 +250,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
 
-    private applyFilters()  {
+    private applyFilters() {
         const searchTerm = this.searchTerm.trim().toLowerCase();
         const typeTerm = this.filterType.trim().toLowerCase();
         const dateRange = this.createDateRange(this.filterDateFrom, this.filterDateTo);
@@ -329,11 +335,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         return this.folders.length > 0 || this.files.length > 0;
     }
 
-    onItemMenuKeyChange(key: string | null)  {
+    onItemMenuKeyChange(key: string | null) {
         this.openItemMenuKey = key;
     }
 
-    onAction(event: { type: string; data?: any })  {
+    onAction(event: { type: string; data?: any }) {
         const parentId = this.routeHelper.getParentFolderIdFromUrl();
         switch (event.type) {
             case 'createFolder':
@@ -370,7 +376,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
     }
 
-    openActionDialog(mode: 'rename' | 'delete' | 'share', record: FolderRecord | FileRecord)  {
+    openActionDialog(mode: 'rename' | 'delete' | 'share', record: FolderRecord | FileRecord) {
         this.actionDialogMode = mode;
         this.actionDialogRecord = record;
         this.actionDialogError = '';
@@ -382,20 +388,20 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.actionDialogInput = mode === 'rename' ? record.name : '';
     }
 
-    closeActionDialog()  {
+    closeActionDialog() {
         this.actionDialogMode = null;
         this.actionDialogRecord = null;
         this.actionDialogInput = '';
         this.actionDialogError = '';
         this.actionDialogLoading = false;
         this.shareUrl = '';
-        this.shareEmails = [];      
-        this.shareEmailInput = '';  
+        this.shareEmails = [];
+        this.shareEmailInput = '';
         this.shareWithEveryone = false;
-        this.shareSuccessMessage = ''; 
+        this.shareSuccessMessage = '';
     }
 
-    submitRename()  {
+    submitRename() {
         if (!this.actionDialogRecord) {
             return;
         }
@@ -434,7 +440,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    submitDelete()  {
+    submitDelete() {
         if (!this.actionDialogRecord) {
             return;
         }
@@ -451,7 +457,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 if (res.success) {
                     this.toast.success(`${isFile ? 'File' : 'Folder'} deleted successfully.`);
                     this.removeDeletedRecord(this.actionDialogRecord!);
-                    this.storageService.refreshStorage();
+                    // this.storageService.refreshStorage();
                     this.closeActionDialog();
                 } else {
                     this.actionDialogError = res.message || 'Delete failed.';
@@ -464,10 +470,12 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    submitShare()  {
+    submitShare() {
         if (!this.actionDialogRecord || (!this.shareWithEveryone && this.shareEmails.length === 0)) {
             return;
         }
+
+        console.log('shareddd');
 
         this.actionDialogLoading = true;
         this.actionDialogError = '';
@@ -490,20 +498,36 @@ export class HomeComponent implements OnInit, OnDestroy {
                         this.shareEmails = [];
                         this.shareEmailInput = '';
                     }
+                    if (res?.failedEmails && res.failedEmails.length > 0) {
+                        const failedMessages = res?.failedEmails
+                            .map((f: any) => `${f.email}: ${f.reason}`)
+                            .join('\n');
+
+                        this.toast.warning(`Some shares failed:\n${failedMessages}`);
+
+                        this.actionDialogError = failedMessages;
+                    }
+
                 } else {
                     this.actionDialogError = res.message || 'Failed to share.';
                 }
             },
             error: (err) => {
                 this.actionDialogLoading = false;
-                this.actionDialogError = err?.error?.message || 'Failed to share.';
+                const failedMessages = err?.error?.failedEmails
+                    .map((f: any) => `${f.email}: ${f.reason}`)
+                    .join('\n');
+
+                this.toast.warning(`Some shares failed:\n${failedMessages}`);
+
+                this.actionDialogError = failedMessages;
             }
         });
     }
 
     addEmail(event?: Event) {
         if (event) {
-            event.preventDefault(); 
+            event.preventDefault();
         }
 
         const email = this.shareEmailInput.trim();
@@ -529,10 +553,10 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     removeEmail(index: number) {
         this.shareEmails.splice(index, 1);
-        this.actionDialogError = ''; 
+        this.actionDialogError = '';
     }
 
-    copyShareUrl()  {
+    copyShareUrl() {
         if (!this.shareUrl) {
             return;
         }
@@ -543,7 +567,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
-    private updateRenamedRecord(record: FolderRecord | FileRecord, newName: string)  {
+    private updateRenamedRecord(record: FolderRecord | FileRecord, newName: string) {
         if (this.isFileRecord(record)) {
             this.files = this.files.map((file) => file._id === record._id ? { ...file, name: newName } : file);
         } else {
@@ -554,7 +578,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
     }
 
-    private removeDeletedRecord(record: FolderRecord | FileRecord)  {
+    private removeDeletedRecord(record: FolderRecord | FileRecord) {
         if (this.isFileRecord(record)) {
             this.files = this.files.filter((file) => file._id !== record._id);
         } else {
@@ -578,16 +602,16 @@ export class HomeComponent implements OnInit, OnDestroy {
         return getFilePreview(file);
     }
 
-    private createFolder(name: string, parentId: string | null)  {
+    private createFolder(name: string, parentId: string | null) {
         this.fileService.createFolder(name, parentId || undefined).subscribe({
             next: (res) => {
                 if (res?.success && res?.folder) {
-                   
+
                     this.allFolders.push(res.folder);
                     this.applyFilters();
 
                     this.toast.success('Folder created successfully');
-                    
+
                     this.loadData();
                 } else {
                     this.toast.error(res?.message || 'Failed to create folder');
@@ -604,7 +628,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.loadData();
     }
 
-    private downloadFile(file: FileRecord)  {
+    private downloadFile(file: FileRecord) {
         this.fileService.downloadFile(file._id).subscribe({
             next: (res) => {
                 if (!res?.success || !res.downloadUrl) {

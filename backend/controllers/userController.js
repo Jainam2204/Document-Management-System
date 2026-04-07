@@ -34,8 +34,8 @@ export const updateUserRole = async (req, res) => {
 
         const updatedUser = await User.findOneAndUpdate(
             { id: userId },        
-            { isAdmin: isAdmin },  
-            { new: true }          
+            { isAdmin: isAdmin },
+            { returnDocument: 'after'}  
         );
 
         if (!updatedUser) {

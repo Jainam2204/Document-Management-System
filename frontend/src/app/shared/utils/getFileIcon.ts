@@ -5,7 +5,7 @@ export const getFileIcon = (fileName: string, isFolder: boolean = false): string
 
   const extension = getFileExtension(fileName).toLowerCase();
 
-  // Return extension-specific PNG icon, fallback to default file icon
+
   return `/icons/${extension}.png`;
 }
 
@@ -17,7 +17,6 @@ export const isImageFile = (fileName: string): boolean => {
 
 export const getFilePreview = (file: any): { type: 'image' | 'icon'; src: string; alt: string } => {
   if (isImageFile(file.name)) {
-    // For now, return icon - will be enhanced to get actual image URL
     return {
       type: 'icon',
       src: getFileIcon(file.name),

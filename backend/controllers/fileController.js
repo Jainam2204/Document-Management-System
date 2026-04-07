@@ -11,10 +11,13 @@ import ActivityLog from '../models/ActivityLog.js';
 import { generateToken } from '../utils/generateToken.js';
 import { generateDownloadUrl } from '../utils/generateDownloadURL.js';
 import { getUniqueFileName, folderNameExists, findExistingFolder } from '../utils/uniqueName.js';
+import sendEmail from '../utils/sendEmail.js';
+
+
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-
+// s3 allows only 1000 max requests for delete at one time
 const chunkArray = (array, size) => {
     const chunks = [];
     for (let i = 0; i < array.length; i += size) {
@@ -131,25 +134,25 @@ const deleteS3Objects = async (keys) => {
 
     const keyBatches = chunkArray(validKeys, 1000);
     for (const batch of keyBatches) {
-        const command = new DeleteObjectsCommand({
+        const s3Req = new DeleteObjectsCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             Delete: {
                 Objects: batch.map((key) => ({ Key: key })),
                 Quiet: true,
             },
         });
-        await s3.send(command);
+        await s3.send(s3Req);
     }
 };
 
 
 const deleteS3Object = async (key) => {
     if (!key) return;
-    const command = new DeleteObjectCommand({
+    const s3Req = new DeleteObjectCommand({
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: key,
     });
-    await s3.send(command);
+    await s3.send(s3Req);
 };
 
 
@@ -183,7 +186,9 @@ const cleanupExpiredTrash = async (ownerId) => {
     }).lean();
 
     if (expiredFiles.length) {
+        // const fileS3Keys = expiredFiles.map((file) => file.s3Key);
         await deleteS3Objects(expiredFiles.map((file) => file.s3Key));
+        // const fileIds = expiredFiles.map((file) => file._id);
         await File.deleteMany({ _id: { $in: expiredFiles.map((file) => file._id) } });
     }
 
@@ -198,7 +203,10 @@ const cleanupExpiredTrash = async (ownerId) => {
             const descendantFolderIds = await findDescendantFolderIds([folder._id], ownerId);
             const filesToDelete = await File.find({ owner: ownerId, folder: { $in: descendantFolderIds } }).lean();
             if (filesToDelete.length) {
+                // const fileS3Keys = expiredFiles.map((file) => file.s3Key);
                 await deleteS3Objects(filesToDelete.map((file) => file.s3Key));
+
+                // const fileIds = expiredFiles.map((file) => file._id);
                 await File.deleteMany({ _id: { $in: filesToDelete.map((file) => file._id) } });
             }
             await Folder.deleteMany({ _id: { $in: descendantFolderIds }, owner: ownerId });
@@ -218,13 +226,13 @@ const softDeleteFolderTree = async (folderId, ownerId) => {
         .lean();
 
     const subtreeSize = await getFolderSubtreeSize(folderId, ownerId);
-    if (subtreeSize > 0) {
-        await updateUserStorage(ownerId, -subtreeSize);
-    }
+    // if (subtreeSize > 0) {
+    //     await updateUserStorage(ownerId, -subtreeSize);
+    // }
 
-    if (rootFolder && rootFolder.parentFolder) {
-        await updateFolderSizeAncestors(rootFolder.parentFolder, -subtreeSize, ownerId);
-    }
+    // if (rootFolder && rootFolder.parentFolder) {
+    //     await updateFolderSizeAncestors(rootFolder.parentFolder, -subtreeSize, ownerId);
+    // }
 
     await Folder.updateMany(
         { _id: { $in: folderIds }, owner: ownerId, isDeleted: false },
@@ -378,7 +386,7 @@ export const uploadFile = async (req, res) => {
                 }
             },
             { $inc: { storageUsed: fileSize } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!updatedUser) {
@@ -404,14 +412,14 @@ export const uploadFile = async (req, res) => {
 
         const s3Key = `uploads/${userPrefix}/${folderPath}${originalName}`;
 
-        const command = new PutObjectCommand({
+        const s3Req = new PutObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             Key: s3Key,
             Body: req.file.buffer,
             ContentType: fileType,
         });
 
-        await s3.send(command);
+        await s3.send(s3Req);
 
         let file;
         try {
@@ -420,7 +428,8 @@ export const uploadFile = async (req, res) => {
             const counter = await Counter.findOneAndUpdate(
                 { collectionName: 'files' },
                 { $inc: { count: 1 } },
-                { new: true, upsert: true }
+                { returnDocument: 'after', upsert: true }
+                // { new: true, upsert: true }
             );
 
             file = await File.create({
@@ -433,14 +442,14 @@ export const uploadFile = async (req, res) => {
                 owner: user._id,
             });
 
-        } catch (dbError) {
+        } catch (error) {
             await User.findByIdAndUpdate(user._id, { $inc: { storageUsed: -fileSize } })
                 .catch(err => console.error('Failed to rollback storageUsed after DB error:', err));
 
             await deleteS3Object(s3Key)
                 .catch(err => console.error('Failed to delete S3 object after DB error:', err));
 
-            throw dbError;
+            throw error;
         }
 
         if (folderId) {
@@ -505,38 +514,38 @@ export const getFileDownloadUrl = async (req, res) => {
     }
 };
 
-export const getFileViewUrl = async (req, res) => {
-    try {
-        const id = req.params.id;
-        console.log('fileId: ', id);
+// export const getFileViewUrl = async (req, res) => {
+//     try {
+//         const id = req.params.id;
+//         console.log('fileId: ', id);
 
-        const file = await File.findOne({
-            _id: id,
-            isDeleted: false,
-        }).lean();
+//         const file = await File.findOne({
+//             _id: id,
+//             isDeleted: false,
+//         }).lean();
 
-        if (!file) {
-            return res.status(404).json({
-                success: false,
-                message: 'File not found',
-            });
-        }
+//         if (!file) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: 'File not found',
+//             });
+//         }
 
-        // For view URL, don't set attachment disposition so it displays inline
-        const viewUrl = await generateDownloadUrl(file.s3Key, 3600); // 1 hour expiry for viewing
+//         // For view URL, don't set attachment disposition so it displays inline
+//         const viewUrl = await generateDownloadUrl(file.s3Key, 3600); // 1 hour expiry for viewing
 
-        return res.status(200).json({
-            success: true,
-            downloadUrl: viewUrl, // Keep the same response format
-        });
-    } catch (error) {
-        console.error('Error in getFileViewUrl: ' + error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to generate view URL',
-        });
-    }
-};
+//         return res.status(200).json({
+//             success: true,
+//             downloadUrl: viewUrl, // Keep the same response format
+//         });
+//     } catch (error) {
+//         console.error('Error in getFileViewUrl: ' + error);
+//         res.status(500).json({
+//             success: false,
+//             message: 'Failed to generate view URL',
+//         });
+//     }
+// };
 
 export const getUserFiles = async (req, res) => {
     try {
@@ -603,7 +612,8 @@ export const createFolderTree = async (req, res) => {
             const rootCounter = await Counter.findOneAndUpdate(
                 { collectionName: 'folders' },
                 { $inc: { count: 1 } },
-                { new: true, upsert: true }
+                { returnDocument: 'after', upsert: true }
+                // { new: true, upsert: true }
             );
 
             rootFolder = await Folder.create({
@@ -651,7 +661,8 @@ export const createFolderTree = async (req, res) => {
                 const counter = await Counter.findOneAndUpdate(
                     { collectionName: 'folders' },
                     { $inc: { count: 1 } },
-                    { new: true, upsert: true }
+                    { returnDocument: 'after', upsert: true }
+                    // { new: true, upsert: true }
                 );
 
                 const folder = await Folder.create({
@@ -1002,7 +1013,8 @@ export const createFolder = async (req, res) => {
         const counter = await Counter.findOneAndUpdate(
             { collectionName: 'folders' },
             { $inc: { count: 1 } },
-            { new: true, upsert: true }
+            { returnDocument: 'after', upsert: true }
+            // { new: true, upsert: true }
         );
 
         const folder = await Folder.create({
@@ -1053,11 +1065,11 @@ export const updateFileDeleteStatus = async (req, res) => {
         file.isDeleted = true;
         file.deletedAt = new Date();
 
-        if (file.folder) {
-            await updateFolderSizeAncestors(file.folder, -(file.size || 0), req.user._id);
-        }
+        // if (file.folder) {
+        //     await updateFolderSizeAncestors(file.folder, -(file.size || 0), req.user._id);
+        // }
 
-        await updateUserStorage(req.user._id, -(file.size || 0));
+        // await updateUserStorage(req.user._id, -(file.size || 0));
 
         await file.save();
 
@@ -1157,18 +1169,18 @@ export const renameFile = async (req, res) => {
 
         const newS3Key = folderPrefix + uniqueName;
 
-        const copyCommand = new CopyObjectCommand({
+        const s3CopyReq = new CopyObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             CopySource: `${process.env.AWS_BUCKET_NAME}/${oldS3Key}`,
             Key: newS3Key,
         });
-        await s3.send(copyCommand);
+        await s3.send(s3CopyReq);
 
-        const deleteCommand = new DeleteObjectCommand({
+        const s3DelReq = new DeleteObjectCommand({
             Bucket: process.env.AWS_BUCKET_NAME,
             Key: oldS3Key,
         });
-        await s3.send(deleteCommand);
+        await s3.send(s3DelReq);
 
         file.name = uniqueName;
         file.s3Key = newS3Key;
@@ -1252,18 +1264,18 @@ export const renameFolder = async (req, res) => {
 
             const newS3Key = newS3Prefix + oldS3Key.slice(oldS3Prefix.length);
 
-            const copyCommand = new CopyObjectCommand({
+            const s3CopyReq = new CopyObjectCommand({
                 Bucket: process.env.AWS_BUCKET_NAME,
                 CopySource: `${process.env.AWS_BUCKET_NAME}/${oldS3Key}`,
                 Key: newS3Key,
             });
-            await s3.send(copyCommand);
+            await s3.send(s3CopyReq);
 
-            const deleteCommand = new DeleteObjectCommand({
+            const s3DelReq = new DeleteObjectCommand({
                 Bucket: process.env.AWS_BUCKET_NAME,
                 Key: oldS3Key,
             });
-            await s3.send(deleteCommand);
+            await s3.send(s3DelReq);
 
             file.s3Key = newS3Key;
             await file.save();
@@ -1340,11 +1352,11 @@ export const renameFolder = async (req, res) => {
 
 //         if (type === 'file') {
 //             try {
-//                 const headCommand = new HeadObjectCommand({
+//                 const s3HeadReq = new HeadObjectCommand({
 //                     Bucket: process.env.AWS_BUCKET_NAME,
 //                     Key: resource.s3Key
 //                 });
-//                 await s3.send(headCommand);
+//                 await s3.send(s3HeadReq);
 //             } catch (headError) {
 //                 console.error('Share file head object failed:', headError);
 //                 return res.status(404).json({
@@ -1406,11 +1418,11 @@ export const renameFolder = async (req, res) => {
 //             }
 
 //             try {
-//                 const headCommand = new HeadObjectCommand({
+//                 const s3HeadReq = new HeadObjectCommand({
 //                     Bucket: process.env.AWS_BUCKET_NAME,
 //                     Key: file.s3Key
 //                 });
-//                 await s3.send(headCommand);
+//                 await s3.send(s3HeadReq);
 //             } catch (headError) {
 //                 console.error('Shared file head check failed:', headError);
 //                 return res.status(404).json({
@@ -1652,7 +1664,10 @@ export const shareWithUsers = async (req, res) => {
                 });
 
                 if (alreadyShared) {
-                    results.failed.push({ email: trimmedEmail, reason: 'Already shared with this user' });
+                    results.failed.push({
+                        email: trimmedEmail,
+                        reason: `${type} "${resource.name}" is already shared with ${targetUser.email}`
+                    });
                     continue;
                 }
 
@@ -1667,11 +1682,11 @@ export const shareWithUsers = async (req, res) => {
                 });
 
                 const user = await User.findOne({ _id: resource.owner });
-                // await sendEmail({
-                //     to: targetUser.email,
-                //     subject: `${type} shared with you: `,
-                //     html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
-                // });
+                await sendEmail({
+                    to: targetUser.email,
+                    subject: `${type} shared with you: `,
+                    html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
+                });
 
                 results.successful.push(trimmedEmail);
             } catch (emailError) {
