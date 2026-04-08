@@ -103,7 +103,6 @@
         <div *ngIf="actionDialogMode === 'share'">
           <p>Share "{{ actionDialogRecord?.name }}" with other users.</p>
 
-          <!-- File sharing: show Specific Users + Everyone radio -->
           <div *ngIf="isShareTargetFile" class="share-scope">
             <label class="radio-inline">
               <input
@@ -125,7 +124,6 @@
             </label>
           </div>
 
-          <!-- Specific Users mode (always for folders, selectable for files) -->
           <div *ngIf="!shareWithEveryone">
             <label for="share-email">Email addresses (press Enter to add)</label>
             <div class="email-input-wrapper">
@@ -168,7 +166,6 @@
             </div>
           </div>
 
-          <!-- Everyone mode (files only) -->
           <div *ngIf="shareWithEveryone" class="share-everyone-note">
             A secure public download link will be generated. Anyone with the link can download this file.
           </div>
@@ -176,12 +173,10 @@
           <label for="share-date">Expiry date (optional)</label>
           <input id="share-date" type="date" [min]="minDate" class="dialog__input" [(ngModel)]="shareExpiryDate" />
 
-          <!-- Success message -->
           <div *ngIf="shareSuccessMessage" class="share-success">
             {{ shareSuccessMessage }}
           </div>
 
-          <!-- Public share URL display -->
           <div *ngIf="publicShareUrl" class="public-share-url-box">
             <label class="public-share-url-label">Download Link</label>
             <div class="public-share-url-row">
@@ -242,7 +237,6 @@
 
     <div class="drive__loading" *ngIf="loading">Loading files...</div>
 
-    <!-- Folder upload progress bar with Cancel button -->
     <div class="folder-upload-bar" *ngIf="uploadHelper.folderUploadLoading">
         <span class="folder-upload-bar__text">{{ uploadHelper.folderUploadStatus || 'Uploading folder...' }}</span>
         <button type="button" class="folder-upload-bar__cancel" (click)="uploadHelper.cancelFolderUpload()">
@@ -256,7 +250,6 @@
         <div class="drive__grid drive__grid--folders">
             <div class="folder-card" *ngFor="let folder of folders" (click)="onFolderClick(folder)">
                 <div class="folder-card__left">
-                    <!-- SVG icon for folder -->
                     <img 
                         [src]="getItemIcon(folder)"
                         alt="Folder icon"
@@ -286,7 +279,6 @@
         <div class="drive__grid drive__grid--files">
             <div class="file-card" *ngFor="let file of files">
                 <div class="file-card__top">
-                    <!-- SVG icon for file type -->
                     <img 
                         [src]="file.name | fileIcon"
                         alt="File icon"

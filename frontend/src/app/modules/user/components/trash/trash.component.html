@@ -1,12 +1,10 @@
 <div class="drive">
   <div class="drive__header">
-    <!-- <h2 class="drive__title">Trash</h2> -->
     <p class="drive__subtitle">Items will be permanently deleted after 30 days</p>
   </div>
 
   <div class="drive__loading" *ngIf="loading">Loading...</div>
 
-  <!-- FOLDERS -->
   <div class="drive__section" *ngIf="folders.length > 0">
     <div class="drive__section-title">Folders</div>
 
@@ -38,7 +36,6 @@
     </div>
   </div>
 
-  <!-- FILES -->
   <div class="drive__section" *ngIf="files.length > 0">
     <div class="drive__section-title">Files</div>
 
@@ -70,13 +67,11 @@
     </div>
   </div>
 
-  <!-- EMPTY -->
   <div class="drive__empty" *ngIf="!loading && folders.length === 0 && files.length === 0">
     <h3>Trash is empty</h3>
     <p>Deleted files and folders will appear here</p>
   </div>
 
-  <!-- DIALOG -->
   <div *ngIf="actionDialogMode === 'permanent'" class="dialog-backdrop" (click)="closeActionDialog()">
     <div class="dialog" (click)="$event.stopPropagation()">
       <h3>Delete permanently</h3>

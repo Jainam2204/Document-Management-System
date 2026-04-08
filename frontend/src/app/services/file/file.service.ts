@@ -162,13 +162,8 @@ export class FileService {
 
 
     downloadFile(fileId: string): Observable<DownloadUrlResponse> {
-        console.log('url: ', this.url + '/download/' + fileId);
         return this.http.get<DownloadUrlResponse>(this.url + '/download/' + fileId);
     }
-
-    // getFileViewUrl(fileId: string): Observable<DownloadUrlResponse> {
-    //     return this.http.get<DownloadUrlResponse>(this.url + '/view/' + fileId);
-    // }
 
     createFolderTree(rootName: string, subPaths: string[], parentFolderId?: string | null): Observable<CreateFolderTreeResponse> {
         const body: any = { rootName, subPaths };

@@ -34,9 +34,7 @@ export class VerifyComponent {
             localStorage.getItem('email') ||
             '';
 
-        console.log('Email:', this.email);
         this.email = history.state.email;
-        console.log(this.email);
     }
 
     verify(verificationDetails: Verify) {

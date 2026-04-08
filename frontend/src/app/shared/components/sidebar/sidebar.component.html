@@ -5,12 +5,6 @@
        (drop)="onDrop($event)"
        [class.drop-active]="dragActive"
 >
-  <!-- <div class="sidebar-fixed-top">
-    <button class="logout-btn logout-btn--top" id="sidebar-logout" title="Logout" (click)="onLogout()">
-      <img src="/icons/logout.svg" alt="logout" class="icon" />
-      <span class="sidebar-label">Logout</span>
-    </button>
-  </div> -->
 
   <div class="sidebar-content">
     <div class="sidebar-new">
@@ -43,14 +37,6 @@
         </a>
       </li>
 
-      <!-- <li class="sidebar-item" [class.sidebar-item--active]="activeItem === 'trash'" (click)="setActive('trash')"
-        id="sidebar-trash">
-        <a class="sidebar-link" title="Trash" routerLink="/trash">
-          <img src="/icons/trash.svg" alt="trash" class="icon" />
-          <span class="sidebar-label">Trash</span>
-        </a>
-      </li> -->
-
       <li class="sidebar-item sidebar-item--storage" id="sidebar-storage">
         <div class="sidebar-link sidebar-link--static" title="Used Storage">
           <img src="/icons/cloud.svg" alt="storage" class="icon" />
@@ -60,16 +46,10 @@
               {{ storageUsed | size }} of {{ storageLimit | size }} used
             </span>
 
-            <!-- Progress Bar -->
             <div class="progress-track">
               <div class="progress-fill" [style.width.%]="storageLimit ? (storageUsed / storageLimit) * 100 : 0">
               </div>
             </div>
-            <!--             
-            <span class="storage-percent">{{ storageUsed }}% used</span>
-            <div class="progress-track">
-              <div class="progress-fill" [style.width.%]="storageUsed"></div>
-            </div> -->
           </div>
         </div>
       </li>
@@ -84,7 +64,6 @@
   (folderUploadCompleted)="onFolderUploadCompleted($event)"
 ></app-upload-helper>
 
-<!-- Folder upload status bar with Cancel button (shown during folder upload) -->
 <div class="sidebar-upload-bar" *ngIf="uploadHelper.folderUploadLoading">
   <span class="sidebar-upload-bar__text">{{ uploadHelper.folderUploadStatus || 'Uploading...' }}</span>
   <button type="button" class="sidebar-upload-bar__cancel" (click)="uploadHelper.cancelFolderUpload()">
@@ -94,14 +73,3 @@
 
 <div class="sidebar-overlay" *ngIf="!collapsed && isMobile" (click)="onOverlayClick()" id="sidebar-overlay">
 </div>
-
-<!-- <div class="dialog-backdrop" *ngIf="showDialog">
-  <div class="dialog">
-    <h3>New Folder</h3>
-    <input type="text" [(ngModel)]="newFolderName" placeholder="Folder name" class="dialog__input" />
-    <div class="dialog__actions">
-      <button (click)="closeDialog()">Cancel</button>
-      <button class="primary" (click)="createFolder()">Create</button>
-    </div>
-  </div>
-</div> -->

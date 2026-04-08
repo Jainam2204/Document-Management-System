@@ -244,8 +244,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     onDrop(event: DragEvent) {
-        console.log("FILES:", event.dataTransfer?.files);
-        console.log("ITEMS:", event.dataTransfer?.items);
         event.preventDefault();
         event.stopPropagation();
         this.dragCounter = 0;

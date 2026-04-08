@@ -25,9 +25,6 @@ import {
     checkStorageAvailability,
     generatePublicShareLink,
     accessPublicShare,
-    // generateShareLink,
-    // getSharedResource,
-    // getFileViewUrl
 } from '../controllers/fileController.js';
 
 const router = express.Router();
@@ -55,8 +52,5 @@ router.get('/shared-with-me', authMiddleware, getSharedWithMe);
 router.get('/shared-with-me/:id', authMiddleware, getSharedFolderContents);
 router.post('/public-share/:id', authMiddleware, generatePublicShareLink);
 router.get('/public/:token', accessPublicShare);
-// router.post('/share/:type/:id', authMiddleware, generateShareLink);
-// router.get('/share/:token', getSharedResource);
-// router.get('/view/:id', authMiddleware, getFileViewUrl);
 
 export default router;

@@ -13,7 +13,7 @@ const sendEmail = async ({
         const response = await client.sendTransacEmail({
             sender: {
                 email: process.env.EMAIL_FROM,
-                name: process.env.EMAIL_FROM_NAME || "Team DMS",
+                name: process.env.EMAIL_FROM_NAME || "Team DocManager",
             },
             to: [
                 {
@@ -25,7 +25,6 @@ const sendEmail = async ({
             htmlContent: html || `<p>${text}</p>`,
         });
 
-        console.log("Email sent!", response);
         return response;
     } catch (error) {
         console.error("Error sending email:", error);

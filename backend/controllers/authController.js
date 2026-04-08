@@ -67,8 +67,6 @@ export const login = async (req, res) => {
 
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-        console.log('verification code : ', verificationCode);
-
         existingUser.verificationCode = verificationCode;
         existingUser.verificationCodeExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
         existingUser.isVerified = false;
@@ -78,7 +76,70 @@ export const login = async (req, res) => {
         await sendEmail({
             to: email,
             subject: "Your Verification Code",
-            html: `<h2>Your verification code is: ${verificationCode}</h2>`,
+            html: `
+                <div style="
+                    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+                    background-color: #f5f7fa;
+                    padding: 40px 20px;
+                    text-align: center;
+                ">
+                    <div style="
+                    max-width: 400px;
+                    margin: 0 auto;
+                    background: #ffffff;
+                    padding: 32px 24px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 24px rgba(26,115,232,0.10);
+                    ">
+                    
+                    <h2 style="
+                        color: #1c1c2e;
+                        font-size: 22px;
+                        font-weight: 600;
+                        margin-bottom: 16px;
+                    ">
+                        DocManager Verification
+                    </h2>
+
+                    <p style="
+                        color: #5f6c7b;
+                        font-size: 14px;
+                        margin-bottom: 24px;
+                    ">
+                        Use the verification code below to continue.
+                    </p>
+
+                    <div style="
+                        background: #e8f0fe;
+                        color: #1a73e8;
+                        font-size: 28px;
+                        font-weight: 700;
+                        letter-spacing: 4px;
+                        padding: 14px;
+                        border-radius: 8px;
+                        margin-bottom: 24px;
+                    ">
+                        ${verificationCode}
+                    </div>
+
+                    <p style="
+                        font-size: 13px;
+                        color: #8a95a3;
+                        margin-bottom: 20px;
+                    ">
+                        This code will expire in 5 minutes.
+                    </p>
+
+                    <p style="
+                        font-size: 12px;
+                        color: #8a95a3;
+                    ">
+                        If you didn’t request this, you can safely ignore this email.
+                    </p>
+
+                    </div>
+                </div>
+                `,
         });
 
         res.status(200).json({
@@ -105,7 +166,6 @@ export const register = async (req, res) => {
             { collectionName: 'users' },
             { $inc: { count: 1 } },
             { returnDocument: 'after', upsert: true }
-            // { new: true, upsert: true }
         );
 
         const now = new Date();
@@ -249,8 +309,6 @@ export const verify = async (req, res) => {
         }
 
         if (existingUser.verificationCode !== verificationCode) {
-            console.log('ex: ', existingUser.verificationCode);
-            console.log('verification code: ', verificationCode);
             return res.status(400).json({
                 success: false,
                 message: 'Invalid verification code'

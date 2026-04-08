@@ -5,20 +5,19 @@
       <img src="/icons/menu.svg" alt="menu" class="icon" />
     </button>
     <a class="logo" href="/">
-      <img src="/icons/logo.svg" alt="logo" class="icon icon--logo" />
-      <span class="logo-text">DMS</span>
+      <img src="/icons/logo.png" alt="logo" class="icon icon--logo" />
+      <span class="logo-text">DocManager</span>
     </a>
   </div>
 
   <div class="header-center" [class.header-center--open]="searchOpen">
     <div class="search-box" id="header-search">
-      <img src="/icons/search.svg" alt="search" class="icon" />
       <input
         #headerSearchInput
         type="text"
         class="search-input"
         id="header-search-input"
-        placeholder="Search files..."
+        placeholder="🔍 Search files..."
         aria-label="Search files"
         (input)="onSearchInput($any($event.target).value || '')"
       />
@@ -40,9 +39,6 @@
     </button>
 
     <div class="profile-dropdown" *ngIf="profileMenuOpen">
-      <button type="button" class="profile-dropdown-item" (click)="updateProfile()">
-        Update Profile
-      </button>
       <button type="button" class="profile-dropdown-item" (click)="logout()">
         Logout
       </button>

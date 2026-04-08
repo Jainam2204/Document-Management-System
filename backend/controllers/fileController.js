@@ -6,7 +6,6 @@ import File from '../models/File.js';
 import Folder from '../models/Folder.js';
 import User from '../models/User.js';
 import Counter from '../models/Counter.js';
-// import ShareLink from '../models/ShareLink.js';
 import Share from '../models/Share.js';
 import PublicShare from '../models/PublicShare.js';
 import ActivityLog from '../models/ActivityLog.js';
@@ -19,7 +18,6 @@ import sendEmail from '../utils/sendEmail.js';
 
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-// s3 allows only 1000 max requests for delete at one time
 const chunkArray = (array, size) => {
     const chunks = [];
     for (let i = 0; i < array.length; i += size) {
@@ -470,7 +468,6 @@ export const uploadFile = async (req, res) => {
                 { collectionName: 'files' },
                 { $inc: { count: 1 } },
                 { returnDocument: 'after', upsert: true }
-                // { new: true, upsert: true }
             );
 
             file = await File.create({
@@ -520,7 +517,6 @@ export const uploadFile = async (req, res) => {
 export const getFileDownloadUrl = async (req, res) => {
     try {
         const id = req.params.id;
-        console.log('fileId: ', id);
 
         const file = await File.findOne({
             _id: id,
@@ -554,39 +550,6 @@ export const getFileDownloadUrl = async (req, res) => {
         });
     }
 };
-
-// export const getFileViewUrl = async (req, res) => {
-//     try {
-//         const id = req.params.id;
-//         console.log('fileId: ', id);
-
-//         const file = await File.findOne({
-//             _id: id,
-//             isDeleted: false,
-//         }).lean();
-
-//         if (!file) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: 'File not found',
-//             });
-//         }
-
-//         // For view URL, don't set attachment disposition so it displays inline
-//         const viewUrl = await generateDownloadUrl(file.s3Key, 3600); // 1 hour expiry for viewing
-
-//         return res.status(200).json({
-//             success: true,
-//             downloadUrl: viewUrl, // Keep the same response format
-//         });
-//     } catch (error) {
-//         console.error('Error in getFileViewUrl: ' + error);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Failed to generate view URL',
-//         });
-//     }
-// };
 
 export const getUserFiles = async (req, res) => {
     try {
@@ -654,7 +617,6 @@ export const createFolderTree = async (req, res) => {
                 { collectionName: 'folders' },
                 { $inc: { count: 1 } },
                 { returnDocument: 'after', upsert: true }
-                // { new: true, upsert: true }
             );
 
             rootFolder = await Folder.create({
@@ -703,7 +665,6 @@ export const createFolderTree = async (req, res) => {
                     { collectionName: 'folders' },
                     { $inc: { count: 1 } },
                     { returnDocument: 'after', upsert: true }
-                    // { new: true, upsert: true }
                 );
 
                 const folder = await Folder.create({
@@ -1051,7 +1012,6 @@ export const createFolder = async (req, res) => {
             { collectionName: 'folders' },
             { $inc: { count: 1 } },
             { returnDocument: 'after', upsert: true }
-            // { new: true, upsert: true }
         );
 
         const folder = await Folder.create({
@@ -1332,183 +1292,6 @@ export const renameFolder = async (req, res) => {
     }
 }
 
-
-// export const generateShareLink = async (req, res) => {
-//     try {
-//         const { expiry } = req.body;
-//         const { type, id } = req.params;
-
-//         if (!['file', 'folder'].includes(type)) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: 'Invalid resource type for sharing'
-//             });
-//         }
-
-//         const Model = type === 'file' ? File : Folder;
-//         const resource = await Model.findOne({
-//             _id: id,
-//             owner: req.user._id,
-//             isDeleted: false
-//         });
-
-//         if (!resource) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: `${type.charAt(0).toUpperCase() + type.slice(1)} not found`
-//             });
-//         }
-
-//         const expiresAt = expiry ? new Date(expiry) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-//         if (isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: 'Invalid expiry date'
-//             });
-//         }
-
-//         const expiresInSeconds = Math.min(
-//             Math.max(1, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
-//             604800
-//         );
-
-//         const token = generateToken();
-//         await ShareLink.create({
-//             resourceType: type,
-//             resourceId: resource._id,
-//             token,
-//             expiresAt,
-//             createdBy: req.user._id
-//         });
-
-//         if (type === 'file') {
-//             try {
-//                 const s3HeadReq = new HeadObjectCommand({
-//                     Bucket: process.env.AWS_BUCKET_NAME,
-//                     Key: resource.s3Key
-//                 });
-//                 await s3.send(s3HeadReq);
-//             } catch (headError) {
-//                 console.error('Share file head object failed:', headError);
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: 'Shared file does not exist in S3'
-//                 });
-//             }
-
-//             const downloadUrl = await generateDownloadUrl(resource.s3Key, expiresInSeconds, resource.name);
-//             return res.status(201).json({
-//                 success: true,
-//                 url: downloadUrl,
-//                 expiresAt: expiresAt.toISOString()
-//             });
-//         }
-
-//         const url = `${req.protocol}://${req.get('host')}/api/files/share/${token}`;
-//         return res.status(201).json({
-//             success: true,
-//             url,
-//             expiresAt: expiresAt.toISOString()
-//         });
-//     } catch (err) {
-//         console.error('Error : ', err);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Error occured while generating share link'
-//         });
-//     }
-// }
-
-
-// export const getSharedResource = async (req, res) => {
-//     try {
-//         const { token } = req.params;
-//         const shareLink = await ShareLink.findOne({
-//             token,
-//             expiresAt: { $gt: new Date() }
-//         });
-
-//         if (!shareLink) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: 'Share link is invalid or expired'
-//             });
-//         }
-
-//         if (shareLink.resourceType === 'file') {
-//             const file = await File.findOne({
-//                 _id: shareLink.resourceId,
-//                 isDeleted: false
-//             });
-
-//             if (!file) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: 'Shared file not found'
-//                 });
-//             }
-
-//             try {
-//                 const s3HeadReq = new HeadObjectCommand({
-//                     Bucket: process.env.AWS_BUCKET_NAME,
-//                     Key: file.s3Key
-//                 });
-//                 await s3.send(s3HeadReq);
-//             } catch (headError) {
-//                 console.error('Shared file head check failed:', headError);
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: 'Shared file does not exist in S3'
-//                 });
-//             }
-
-//             const downloadUrl = await generateDownloadUrl(file.s3Key, 300, file.name);
-//             return res.redirect(downloadUrl);
-//         }
-
-//         const folder = await Folder.findOne({
-//             _id: shareLink.resourceId,
-//             isDeleted: false
-//         });
-
-//         if (!folder) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: 'Shared folder not found'
-//             });
-//         }
-
-//         const files = await File.find({
-//             folder: folder._id,
-//             isDeleted: false
-//         });
-
-//         const sharedFiles = await Promise.all(
-//             files.map(async (file) => ({
-//                 id: file._id,
-//                 name: file.name,
-//                 type: file.type,
-//                 size: file.size,
-//                 downloadUrl: await generateDownloadUrl(file.s3Key, 300, file.name)
-//             }))
-//         );
-
-//         return res.status(200).json({
-//             success: true,
-//             type: 'folder',
-//             folder: { id: folder._id, name: folder.name },
-//             files: sharedFiles
-//         });
-//     } catch (err) {
-//         console.error('Error : ', err);
-//         res.status(500).json({
-//             success: false,
-//             message: 'Error occured while resolving share link'
-//         });
-//     }
-// }
-
-
 export const shareResource = async (req, res) => {
     try {
         const { type, id } = req.params;
@@ -1720,9 +1503,74 @@ export const shareWithUsers = async (req, res) => {
                 try {
                     await sendEmail({
                         to: targetUser.email,
-                        subject: `${type} shared with you: `,
-                        html: `<h2>${user.name} shared ${type} ${resource.name}</h2>`,
-                    })
+                        subject: `${type} shared with you`,
+                        html: `
+                        <div style="
+                            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+                            background-color: #f5f7fa;
+                            padding: 40px 20px;
+                            text-align: center;
+                        ">
+                            <div style="
+                            max-width: 420px;
+                            margin: 0 auto;
+                            background: #ffffff;
+                            padding: 32px 24px;
+                            border-radius: 12px;
+                            box-shadow: 0 8px 24px rgba(26,115,232,0.10);
+                            ">
+
+                            <h2 style="
+                                color: #1c1c2e;
+                                font-size: 20px;
+                                font-weight: 600;
+                                margin-bottom: 16px;
+                            ">
+                                New ${type} Shared
+                            </h2>
+
+                            <p style="
+                                font-size: 14px;
+                                color: #5f6c7b;
+                                margin-bottom: 20px;
+                            ">
+                                <strong style="color:#1c1c2e;">${user.name}</strong> has shared a 
+                                <strong style="color:#1a73e8;">${type}</strong> with you.
+                            </p>
+
+                            <div style="
+                                background: #e8f0fe;
+                                padding: 14px;
+                                border-radius: 8px;
+                                margin-bottom: 24px;
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: #1a73e8;
+                                word-break: break-word;
+                            ">
+                                ${resource.name}
+                            </div>
+
+                            <p style="
+                                font-size: 13px;
+                                color: #8a95a3;
+                                margin-bottom: 24px;
+                            ">
+                                You can now access this ${type} from your shared items.
+                            </p>
+
+                            <p style="
+                                font-size: 12px;
+                                color: #8a95a3;
+                                margin-top: 24px;
+                            ">
+                                If you were not expecting this, you can ignore this email.
+                            </p>
+
+                            </div>
+                        </div>
+                        `,
+                    });
                 } catch (error) {
                     console.error('Failed to send share email:', error);
                 }
@@ -1938,7 +1786,7 @@ export const generatePublicShareLink = async (req, res) => {
             expiresAt: expiresAt ? expiresAt.toISOString() : null
         });
     } catch (err) {
-        console.error('Error in generatePublicShareLink:', err);
+        console.error('Error in generatePublicShareLink :', err);
         res.status(500).json({
             success: false,
             message: 'Failed to generate share link'
